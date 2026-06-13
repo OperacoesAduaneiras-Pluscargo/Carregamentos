@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PLUSCARGO — Gerador de Documentos</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://unpkg.com/docx@7.8.2/build/index.js"></script>
+<style>
+:root{--azul:#0099CC;--marinho:#1a3a5c;--campo:#fffde7;--borda:#cfd8e3;--txt:#1f2d3d;--verde:#2e7d32;--vermelho:#c62828;--cinza:#7a8aa0}
+*{box-sizing:border-box;font-family:'Segoe UI',Roboto,Arial,sans-serif}
+body{margin:0;background:#eef2f6;color:var(--txt);font-size:14px;padding:24px}
+h1{color:var(--marinho);font-size:22px;margin:0 0 4px}
+h2{color:var(--azul);font-size:16px;margin:20px 0 8px;border-bottom:2px solid var(--azulclaro,#e6f5fb);padding-bottom:4px}
+button{cursor:pointer;border:none;border-radius:6px;font-size:13px;padding:8px 16px;transition:.15s;font-weight:600}
+button:hover{filter:brightness(1.07)}
+input,select,textarea{width:100%;padding:8px 10px;border:1px solid var(--borda);border-radius:6px;background:var(--campo);font-size:13px}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--azul);outline-offset:-1px}
+textarea{resize:vertical;min-height:60px}
+label{font-size:12px;font-weight:600;color:var(--marinho);display:block;margin-bottom:3px}
+.hidden{display:none!important}
+.btn-pri{background:var(--azul);color:#fff}
+.btn-grn{background:var(--verde);color:#fff}
+.btn-out{background:#fff;border:1px solid var(--borda);color:var(--marinho)}
+.btn-red{background:var(--vermelho);color:#fff}
+.btn-sm{padding:5px 10px;font-size:12px}
+.card{background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.08);padding:20px;margin-bottom:16px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.grid4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px}
+.field{margin-bottom:8px}
+.tabs{display:flex;gap:6px;margin-bottom:20px;flex-wrap:wrap}
+.tabs button{padding:10px 20px;border-radius:8px;font-size:14px}
+.alerta{background:#f8d7da;color:#721c24;padding:10px 14px;border-radius:6px;font-weight:600;margin:8px 0}
+.muted{color:var(--cinza);font-size:12px}
+.loading-overlay{position:fixed;inset:0;background:rgba(26,58,92,.7);display:flex;align-items:center;justify-content:center;z-index:999;flex-direction:column;gap:16px}
+.loading-overlay p{color:#fff;font-size:16px;font-weight:600}
+.spinner{width:48px;height:48px;border:5px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--marinho);color:#fff;padding:11px 20px;border-radius:8px;z-index:300;box-shadow:0 6px 20px rgba(0,0,0,.3);font-size:13px}
+/* Preview doc */
+#docPreviewWrap{background:#f0f2f5;padding:24px;border-radius:8px;margin-top:16px;display:flex;justify-content:center}
+.doc-page{background:#fff;width:210mm;min-height:297mm;padding:25mm 30mm 20mm 30mm;box-shadow:0 4px 24px rgba(0,0,0,.18);font-family:'Times New Roman',Times,serif;font-size:12pt;line-height:1.6;color:#000;position:relative}
+.doc-logo{position:absolute;top:15mm;right:20mm;max-height:25mm;max-width:60mm;object-fit:contain}
+.doc-title{text-align:center;font-size:14pt;font-weight:bold;text-transform:uppercase;margin:0 0 24pt;letter-spacing:1px}
+.doc-section{margin-bottom:14pt;text-align:justify}
+.doc-section b{font-weight:bold}
+.doc-poder{margin-bottom:10pt;text-align:justify;padding-left:8pt}
+.doc-ass{margin-top:36pt}
+.doc-ass-grid{display:grid;grid-template-columns:1fr 1fr;gap:20pt;margin-top:12pt}
+.doc-ass-item{text-align:center}
+.doc-ass-line{border-top:1px solid #000;margin-bottom:6pt;margin-top:36pt}
+.doc-ass-nome{font-weight:bold;font-size:11pt}
+.doc-ass-cargo{font-size:10pt}
+.doc-test-grid{display:grid;grid-template-columns:1fr 1fr;gap:20pt;margin-top:12pt}
+.doc-local{margin-top:24pt;text-align:right;font-size:11pt}
+.filial-block{background:#f7fafc;border:1px solid #dde6ef;border-radius:8px;padding:12px;margin-bottom:10px}
+.outorg-block{background:#f7fafc;border:1px solid #dde6ef;border-radius:8px;padding:12px;margin-bottom:10px}
+</style>
+</head>
+<body>
+
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+  <div>
+    <h1>PLUSCARGO — Gerador de Documentos</h1>
+    <p class="muted" style="margin:0">Módulo isolado para testes de formatação</p>
+  </div>
+</div>
+
+<!-- Seletor de tipo -->
+<div class="card" style="padding:14px 20px">
+  <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+    <div>
+      <label>Tipo de documento</label>
+      <select id="docTipoSel" onchange="trocarTipo()" style="width:260px">
+        <option value="procuracao">Procuração</option>
+        <option value="contrato">Contrato de Despacho</option>
+        <option value="substabelecimento">Substabelecimento</option>
+      </select>
+    </div>
+    <button class="btn-out" onclick="limparForm()">↺ Limpar formulário</button>
+  </div>
+</div>
+
+<!-- FORMULÁRIO -->
+<div id="formArea"></div>
+
+<!-- PREVIEW -->
+<div id="previewArea" class="hidden">
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+      <h2 style="margin:0;border:none">Pré-visualização</h2>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn-pri" onclick="gerarPDF()">⬇ Baixar PDF</button>
+        <button class="btn-grn" onclick="gerarDOCX()">⬇ Baixar DOCX</button>
+        <button class="btn-out btn-sm" onclick="fecharPreview()">Fechar preview</button>
+      </div>
+    </div>
+    <div id="docPreviewWrap">
+      <div class="doc-page" id="docPage"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Loading -->
+<div id="loadingOverlay" class="hidden loading-overlay">
+  <div class="spinner"></div>
+  <p id="loadingMsg">Gerando documento...</p>
+</div>
+
+<script>
+/* ===== CONSTANTES ===== */
+var MESES=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+var SUBST_PESSOAS={
+  paula:{nome:'Paula Machado Jacinto',nac:'brasileira',ecivil:'solteira',prof:'despachante aduaneira',registro:'7D/02.682 - 7ª Região Fiscal',rg:'1.876.229/ES',cpf:'103.803.597-07',end:'Rua Antonio Manoel Moreira, 175, apt 801, Bairro Fazenda, Itajaí/SC'},
+  lucas:{nome:'Lucas Origuela Pinto',nac:'brasileiro',ecivil:'solteiro',prof:'ajudante de despachante aduaneiro',registro:'442.331.778-88 (8ª Região)',rg:'37.400.002-5/SP',cpf:'442.331.778-88',end:'Avenida Doutor Haroldo de Camargo, 60, apto 122A, Jd. Castelo, CEP 11.087-500, Santos/SP'}
+};
+var OUTORG_PRECAD=[
+  {nome:'Marcia Sibelle M. Ferreira',nac:'brasileira',ecivil:'casada',prof:'despachante aduaneiro',cpf:'045.779.914-54',rg:'39.315.598-5',end:'Av. da Paz, 209, apto. 91, bloco 06, Jardim São Judas, Guarulhos/SP, CEP 07.061-032'},
+  {nome:'Alex Sandra dos Santos Guilherme',nac:'brasileiro',ecivil:'casada',prof:'despachante aduaneiro',cpf:'888.841.984-53',rg:'37.802.606-9',end:'Av. da Paz, 209, apto. 91, bloco 06, Jardim São Judas, Guarulhos/SP, CEP 07.061-032'},
+  {nome:'Bianca dos Santos Ferreira',nac:'brasileiro',ecivil:'casada',prof:'despachante aduaneiro',cpf:'257.156.618-03',rg:'',end:'Av. Aguanil, 312, Seroido, Guarulhos/SP, CEP 07150-060'},
+  {nome:'Nivaldo Benedito Dicheti Junior',nac:'brasileiro',ecivil:'casado',prof:'Despachante Aduaneiro registrado sob nº 8D/05.061',cpf:'101.698.757-92',rg:'43.482.305-3 SSP-SP',end:'Rua Sebastião Gil, 161, Vila Costa, Taubaté/SP, CEP 12050-200'},
+  {nome:'Jose Alexandre Ferreira Filho',nac:'brasileiro',ecivil:'casado',prof:'despachante aduaneiro',cpf:'226.761.408-17',rg:'41.726.540-2',end:'Av. da Paz, 209, apto. 91, bloco 06, Jardim São Judas, Guarulhos/SP, CEP 07.061-032'}
+];
+var UFS=['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
+
+/* ===== STATE ===== */
+var docTipo='procuracao';
+var docFiliais=[];
+var substOutorgados=[];
+var substNovoOutorg=[];
+var logoDataUrl=null;
+
+/* ===== HELPERS ===== */
+function $(s){return document.querySelector(s)}
+function esc(s){if(s==null)return'';return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function gVal(id){var el=document.getElementById(id);return el?el.value:''}
+function UFopts(sel){return UFS.map(function(u){return'<option'+(u===sel?' selected':'')+'>'+u+'</option>'}).join('')}
+function maskCNPJ(v){v=(v||'').replace(/\D/g,'').slice(0,14);if(v.length>12)return v.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{0,2}).*/,'$1.$2.$3/$4-$5');if(v.length>8)return v.replace(/^(\d{2})(\d{3})(\d{3})(\d{0,4}).*/,'$1.$2.$3/$4');if(v.length>5)return v.replace(/^(\d{2})(\d{3})(\d{0,3}).*/,'$1.$2.$3');if(v.length>2)return v.replace(/^(\d{2})(\d{0,3}).*/,'$1.$2');return v}
+function maskCPF(v){v=(v||'').replace(/\D/g,'').slice(0,11);if(v.length>9)return v.replace(/^(\d{3})(\d{3})(\d{3})(\d{0,2}).*/,'$1.$2.$3-$4');if(v.length>6)return v.replace(/^(\d{3})(\d{3})(\d{0,3}).*/,'$1.$2.$3');if(v.length>3)return v.replace(/^(\d{3})(\d{0,3}).*/,'$1.$2');return v}
+function maskCEP(v){v=(v||'').replace(/\D/g,'').slice(0,8);if(v.length>5)return v.replace(/^(\d{2})(\d{3})(\d{0,3}).*/,'$1.$2-$3');if(v.length>2)return v.replace(/^(\d{2})(\d{0,3}).*/,'$1.$2');return v}
+function fmtDataLonga(d){if(!d)return'';var p=d.split('-');if(p.length<3)return d;return p[2]+' de '+MESES[+p[1]-1]+' de '+p[0]}
+function hoje(){return new Date().toISOString().slice(0,10)}
+function endStr(d){var e=d.rua+', nº '+d.num;if(d.compl)e+=', '+d.compl;e+=', '+d.bairro+', CEP '+d.cep+', '+d.cidade+'/'+d.uf;return e}
+function toast(msg){var t=document.createElement('div');t.className='toast';t.textContent=msg;document.body.appendChild(t);setTimeout(function(){t.remove()},2800)}
+function showLoading(msg){document.getElementById('loadingOverlay').classList.remove('hidden');document.getElementById('loadingMsg').textContent=msg||'Gerando documento...'}
+function hideLoading(){document.getElementById('loadingOverlay').classList.add('hidden')}
+
+/* ===== TROCAR TIPO ===== */
+function trocarTipo(){
+  docTipo=$('#docTipoSel').value;
+  docFiliais=[];substOutorgados=[];substNovoOutorg=[];
+  fecharPreview();
+  renderForm();
+}
+function limparForm(){docFiliais=[];substOutorgados=[];substNovoOutorg=[];logoDataUrl=null;renderForm()}
+
+/* ===== RENDER FORM ===== */
+function renderForm(){
+  if(docTipo==='substabelecimento')renderFormSubst();
+  else renderFormProcCont();
+}
+
+function camposCabecalho(d){
+  d=d||{};
+  return '<h2>Dados da Empresa (Outorgante/Contratante)</h2>'
+    +'<div style="display:flex;gap:10px;margin-bottom:10px;align-items:flex-end;flex-wrap:wrap">'
+    +'<div class="field" style="flex:1;min-width:200px"><label>Razão Social *</label><input id="d_razao" value="'+esc(d.razao||'')+'" oninput="this.value=this.value.toUpperCase()"></div>'
+    +'<div class="field" style="width:200px"><label>CNPJ *</label><input id="d_cnpj" value="'+esc(d.cnpj||'')+'" placeholder="00.000.000/0000-00" oninput="this.value=maskCNPJ(this.value)"></div>'
+    +'</div>'
+    +'<div class="grid4">'
+    +'<div class="field" style="grid-column:span 2"><label>Rua / Avenida *</label><input id="d_rua" value="'+esc(d.rua||'')+'"></div>'
+    +'<div class="field"><label>Número *</label><input id="d_num" value="'+esc(d.num||'')+'"></div>'
+    +'<div class="field"><label>Complemento</label><input id="d_compl" value="'+esc(d.compl||'')+'"></div>'
+    +'</div>'
+    +'<div class="grid4">'
+    +'<div class="field"><label>Bairro *</label><input id="d_bairro" value="'+esc(d.bairro||'')+'"></div>'
+    +'<div class="field"><label>CEP *</label><input id="d_cep" value="'+esc(d.cep||'')+'" placeholder="00.000-000" oninput="this.value=maskCEP(this.value)"></div>'
+    +'<div class="field"><label>Cidade *</label><input id="d_cidade" value="'+esc(d.cidade||'')+'"></div>'
+    +'<div class="field"><label>UF *</label><select id="d_uf">'+UFopts(d.uf||'SP')+'</select></div>'
+    +'</div>'
+    +'<h2>Representante Legal</h2>'
+    +'<div class="grid3">'
+    +'<div class="field"><label>Nome completo *</label><input id="d_rep_nome" value="'+esc(d.rep_nome||'')+'"></div>'
+    +'<div class="field"><label>Nacionalidade *</label><input id="d_rep_nac" value="'+esc(d.rep_nac||'brasileiro')+'"></div>'
+    +'<div class="field"><label>Estado Civil *</label><select id="d_rep_ecivil">'+['casado','solteiro','divorciado','viúvo','união estável'].map(function(x){return'<option'+(x===(d.rep_ecivil||'casado')?' selected':'')+'>'+x+'</option>'}).join('')+'</select></div>'
+    +'</div>'
+    +'<div class="grid3">'
+    +'<div class="field"><label>Profissão *</label><input id="d_rep_prof" value="'+esc(d.rep_prof||'empresário')+'"></div>'
+    +'<div class="field"><label>CPF *</label><input id="d_rep_cpf" value="'+esc(d.rep_cpf||'')+'" placeholder="000.000.000-00" oninput="this.value=maskCPF(this.value)"></div>'
+    +'<div class="field"><label>RG *</label><input id="d_rep_rg" value="'+esc(d.rep_rg||'')+'"></div>'
+    +'</div>';
+}
+
+function camposAssinatura(showVal){
+  return '<h2>Local e Data</h2>'
+    +'<div class="grid3">'
+    +'<div class="field"><label>Cidade de assinatura *</label><input id="d_cidade_ass" value="Santos"></div>'
+    +'<div class="field"><label>Data *</label><input type="date" id="d_data" value="'+hoje()+'"></div>'
+    +(showVal?'<div class="field"><label>Validade da Procuração *</label><select id="d_validade"><option value="1">1 ano</option><option value="2">2 anos</option><option value="3" selected>3 anos</option></select></div>':'<div></div>')
+    +'</div>';
+}
+
+function camposTestemunhas(){
+  return '<h2>Testemunhas</h2>'
+    +'<div class="grid2">'
+    +'<div class="card" style="background:#f7fafc;box-shadow:none;border:1px solid #dde6ef">'
+    +'<b style="color:var(--marinho)">Testemunha 1</b>'
+    +'<div class="field" style="margin-top:8px"><label>Pessoa</label>'
+    +'<select id="test1_sel" onchange="syncTestemunha(1)">'
+    +'<option value="paula">Paula Machado Jacinto</option>'
+    +'<option value="lucas">Lucas Origuela Pinto</option>'
+    +'<option value="outro">Outra pessoa</option>'
+    +'</select></div>'
+    +'<div id="test1_custom" class="hidden">'
+    +'<div class="field"><label>Nome</label><input id="test1_nome"></div>'
+    +'<div class="field"><label>CPF</label><input id="test1_cpf" placeholder="000.000.000-00" oninput="this.value=maskCPF(this.value)"></div>'
+    +'</div></div>'
+    +'<div class="card" style="background:#f7fafc;box-shadow:none;border:1px solid #dde6ef">'
+    +'<b style="color:var(--marinho)">Testemunha 2</b>'
+    +'<div class="field" style="margin-top:8px"><label>Pessoa</label>'
+    +'<select id="test2_sel" onchange="syncTestemunha(2)">'
+    +'<option value="paula">Paula Machado Jacinto</option>'
+    +'<option value="lucas" selected>Lucas Origuela Pinto</option>'
+    +'<option value="outro">Outra pessoa</option>'
+    +'</select></div>'
+    +'<div id="test2_custom" class="hidden">'
+    +'<div class="field"><label>Nome</label><input id="test2_nome"></div>'
+    +'<div class="field"><label>CPF</label><input id="test2_cpf" placeholder="000.000.000-00" oninput="this.value=maskCPF(this.value)"></div>'
+    +'</div></div>'
+    +'</div>';
+}
+
+function syncTestemunha(n){
+  var sel=document.getElementById('test'+n+'_sel');
+  var custom=document.getElementById('test'+n+'_custom');
+  if(sel&&custom)custom.classList.toggle('hidden',sel.value!=='outro');
+}
+
+function getTestemunha(n){
+  var sel=gVal('test'+n+'_sel');
+  if(sel==='paula')return{nome:'Paula Machado Jacinto',cpf:'103.803.597-07'};
+  if(sel==='lucas')return{nome:'Lucas Origuela Pinto',cpf:'442.331.778-88'};
+  return{nome:gVal('test'+n+'_nome'),cpf:gVal('test'+n+'_cpf')};
+}
+
+function renderFormProcCont(){
+  var isProcuracao=docTipo==='procuracao';
+  var html='<div class="card">'
+    +(isProcuracao?'<h2>Logo da Empresa (opcional)</h2>'
+      +'<div class="field"><label>Upload da logo (PNG/JPG — aparece no canto superior direito)</label>'
+      +'<input type="file" accept="image/png,image/jpeg,image/gif,image/svg+xml" onchange="carregarLogo(this)" style="background:#fff"></div>'
+      +(logoDataUrl?'<div style="margin:8px 0"><img src="'+logoDataUrl+'" style="max-height:60px;border:1px solid #dde6ef;border-radius:4px;padding:4px"> <button class="btn-red btn-sm" onclick="logoDataUrl=null;renderForm()">× Remover</button></div>':'')
+      :'')
+    +camposCabecalho()
+    +(docTipo==='contrato'?'<h2>Filiais <span class="muted" style="font-weight:400">(opcional)</span> <button class="btn-out btn-sm" onclick="addFilial()">+ Adicionar filial</button></h2><div id="filiaisList"></div>':'')
+    +camposAssinatura(isProcuracao)
+    +camposTestemunhas()
+    +'<div style="display:flex;gap:10px;margin-top:20px;flex-wrap:wrap">'
+    +'<button class="btn-pri" onclick="gerarPreview()" style="font-size:15px;padding:10px 24px">👁 Pré-visualizar</button>'
+    +'</div></div>';
+  $('#formArea').innerHTML=html;
+  if(docTipo==='contrato')reRenderFiliais();
+}
+
+function carregarLogo(input){
+  var file=input.files[0];if(!file)return;
+  var reader=new FileReader();
+  reader.onload=function(e){logoDataUrl=e.target.result;renderForm()};
+  reader.readAsDataURL(file);
+}
+
+function addFilial(){docFiliais.push({razao:'',cnpj:'',rua:'',num:'',bairro:'',cep:'',cidade:'',uf:'SP'});reRenderFiliais()}
+function removeFilial(i){docFiliais.splice(i,1);reRenderFiliais()}
+function reRenderFiliais(){
+  var el=document.getElementById('filiaisList');if(!el)return;
+  el.innerHTML=docFiliais.map(function(f,i){
+    return'<div class="filial-block"><div style="display:flex;justify-content:space-between;margin-bottom:8px"><b style="color:var(--marinho)">Filial '+(i+1)+'</b><button class="btn-red btn-sm" onclick="removeFilial('+i+')">× Remover</button></div>'
+      +'<div class="grid2"><div class="field"><label>Razão Social</label><input value="'+esc(f.razao)+'" oninput="docFiliais['+i+'].razao=this.value.toUpperCase();this.value=this.value.toUpperCase()"></div>'
+      +'<div class="field"><label>CNPJ</label><input value="'+esc(f.cnpj)+'" oninput="this.value=maskCNPJ(this.value);docFiliais['+i+'].cnpj=this.value"></div></div>'
+      +'<div class="grid4"><div class="field" style="grid-column:span 2"><label>Rua</label><input value="'+esc(f.rua)+'" oninput="docFiliais['+i+'].rua=this.value"></div>'
+      +'<div class="field"><label>Número</label><input value="'+esc(f.num)+'" oninput="docFiliais['+i+'].num=this.value"></div>'
+      +'<div class="field"><label>Bairro</label><input value="'+esc(f.bairro)+'" oninput="docFiliais['+i+'].bairro=this.value"></div></div>'
+      +'<div class="grid4"><div class="field"><label>CEP</label><input value="'+esc(f.cep)+'" oninput="this.value=maskCEP(this.value);docFiliais['+i+'].cep=this.value"></div>'
+      +'<div class="field"><label>Cidade</label><input value="'+esc(f.cidade)+'" oninput="docFiliais['+i+'].cidade=this.value"></div>'
+      +'<div class="field"><label>UF</label><select onchange="docFiliais['+i+'].uf=this.value">'+UFopts(f.uf)+'</select></div></div></div>';
+  }).join('');
+}
+
+function renderFormSubst(){
+  var sel=gVal('subst_pessoa')||'paula';
+  var html='<div class="card">'
+    +'<h2>Empresa que concede os poderes (Outorgante)</h2>'
+    +'<div class="grid2"><div class="field"><label>Razão Social *</label><input id="sub_razao_emp" oninput="this.value=this.value.toUpperCase()"></div>'
+    +'<div class="field"><label>CNPJ *</label><input id="sub_cnpj_emp" placeholder="00.000.000/0000-00" oninput="this.value=maskCNPJ(this.value)"></div></div>'
+    +'<h2>Substabelecente (quem assina)</h2>'
+    +'<div class="field" style="max-width:300px"><label>Pessoa</label>'
+    +'<select id="subst_pessoa" onchange="docTipo=\'substabelecimento\';renderFormSubst()">'
+    +'<option value="paula"'+(sel==='paula'?' selected':'')+'>Paula Machado Jacinto</option>'
+    +'<option value="lucas"'+(sel==='lucas'?' selected':'')+'>Lucas Origuela Pinto</option>'
+    +'</select></div>'
+    +'<h2>Outorgados</h2>'
+    +'<p class="muted">Selecione um ou mais outorgados pré-cadastrados e/ou adicione novos.</p>'
+    +'<div id="outorgPreCad">';
+  OUTORG_PRECAD.forEach(function(o,i){
+    var checked=substOutorgados.indexOf(i)!==-1;
+    html+='<label style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f1f5f9;cursor:pointer">'
+      +'<input type="checkbox" style="width:auto"'+(checked?' checked':'')+' onchange="toggleOutorg('+i+',this.checked)"> '
+      +'<span><b>'+esc(o.nome)+'</b> — CPF '+esc(o.cpf)+'</span></label>';
+  });
+  html+='</div>'
+    +'<div style="margin-top:12px"><button class="btn-out btn-sm" onclick="addNovoOutorg()">+ Adicionar outro outorgado</button></div>'
+    +'<div id="novosOutorgList" style="margin-top:10px"></div>'
+    +'<h2>Validade e Assinatura</h2>'
+    +'<div class="grid3">'
+    +'<div class="field"><label>Válido até (data) *</label><input type="date" id="sub_validade_data" value="2027-12-31"></div>'
+    +'<div class="field"><label>Cidade de assinatura *</label><input id="sub_cidade_ass" value="Santos"></div>'
+    +'<div class="field"><label>UF</label><select id="sub_uf">'+UFopts('SP')+'</select></div>'
+    +'</div>'
+    +'<div class="field" style="max-width:200px"><label>Data *</label><input type="date" id="sub_data" value="'+hoje()+'"></div>'
+    +'<div style="display:flex;gap:10px;margin-top:20px">'
+    +'<button class="btn-pri" onclick="gerarPreview()" style="font-size:15px;padding:10px 24px">👁 Pré-visualizar</button>'
+    +'</div></div>';
+  $('#formArea').innerHTML=html;
+  reRenderNovosOutorg();
+}
+
+function toggleOutorg(i,checked){var idx=substOutorgados.indexOf(i);if(checked&&idx===-1)substOutorgados.push(i);else if(!checked&&idx!==-1)substOutorgados.splice(idx,1)}
+function addNovoOutorg(){substNovoOutorg.push({nome:'',nac:'brasileiro',ecivil:'',prof:'despachante aduaneiro',cpf:'',rg:'',end:''});reRenderNovosOutorg()}
+function removeNovoOutorg(i){substNovoOutorg.splice(i,1);reRenderNovosOutorg()}
+function reRenderNovosOutorg(){
+  var el=document.getElementById('novosOutorgList');if(!el)return;
+  el.innerHTML=substNovoOutorg.map(function(o,i){
+    return'<div class="outorg-block"><div style="display:flex;justify-content:space-between;margin-bottom:8px"><b style="color:var(--marinho)">Outorgado novo '+(i+1)+'</b><button class="btn-red btn-sm" onclick="removeNovoOutorg('+i+')">× Remover</button></div>'
+      +'<div class="grid3"><div class="field"><label>Nome *</label><input value="'+esc(o.nome)+'" oninput="substNovoOutorg['+i+'].nome=this.value"></div>'
+      +'<div class="field"><label>Nacionalidade</label><input value="'+esc(o.nac)+'" oninput="substNovoOutorg['+i+'].nac=this.value"></div>'
+      +'<div class="field"><label>Estado Civil</label><input value="'+esc(o.ecivil)+'" oninput="substNovoOutorg['+i+'].ecivil=this.value"></div></div>'
+      +'<div class="grid3"><div class="field"><label>Profissão</label><input value="'+esc(o.prof)+'" oninput="substNovoOutorg['+i+'].prof=this.value"></div>'
+      +'<div class="field"><label>CPF *</label><input value="'+esc(o.cpf)+'" placeholder="000.000.000-00" oninput="this.value=maskCPF(this.value);substNovoOutorg['+i+'].cpf=this.value"></div>'
+      +'<div class="field"><label>RG</label><input value="'+esc(o.rg)+'" oninput="substNovoOutorg['+i+'].rg=this.value"></div></div>'
+      +'<div class="field"><label>Endereço completo</label><input value="'+esc(o.end)+'" oninput="substNovoOutorg['+i+'].end=this.value"></div></div>';
+  }).join('');
+}
+
+/* ===== COLETA DE DADOS ===== */
+function collectForm(){
+  if(docTipo==='substabelecimento'){
+    return{
+      tipo:'substabelecimento',
+      razao_emp:gVal('sub_razao_emp'),cnpj_emp:gVal('sub_cnpj_emp'),
+      subst_key:gVal('subst_pessoa')||'paula',
+      validade_data:gVal('sub_validade_data'),validade_fmt:fmtDataLonga(gVal('sub_validade_data')),
+      cidade_ass:gVal('sub_cidade_ass'),uf_ass:gVal('sub_uf'),
+      data_raw:gVal('sub_data'),data_fmt:fmtDataLonga(gVal('sub_data')),
+      outorgados_idx:substOutorgados.slice(),outorgados_novos:substNovoOutorg.slice()
+    };
+  }
+  return{
+    tipo:docTipo,
+    razao:gVal('d_razao'),cnpj:gVal('d_cnpj'),
+    rua:gVal('d_rua'),num:gVal('d_num'),compl:gVal('d_compl'),
+    bairro:gVal('d_bairro'),cep:gVal('d_cep'),cidade:gVal('d_cidade'),uf:gVal('d_uf'),
+    rep_nome:gVal('d_rep_nome'),rep_nac:gVal('d_rep_nac'),rep_ecivil:gVal('d_rep_ecivil'),
+    rep_prof:gVal('d_rep_prof'),rep_cpf:gVal('d_rep_cpf'),rep_rg:gVal('d_rep_rg'),
+    cidade_ass:gVal('d_cidade_ass'),data_raw:gVal('d_data'),data_fmt:fmtDataLonga(gVal('d_data')),
+    validade:gVal('d_validade')||'3',
+    filiais:docFiliais.slice(),
+    test1:getTestemunha(1),test2:getTestemunha(2),
+    logo:logoDataUrl
+  };
+}
+
+function validateForm(d){
+  var erros=[];
+  if(d.tipo==='substabelecimento'){
+    if(!d.razao_emp)erros.push('Razão Social da empresa');
+    if(!d.cnpj_emp)erros.push('CNPJ da empresa');
+    if(!d.validade_data)erros.push('Data de validade');
+    if(!d.cidade_ass)erros.push('Cidade de assinatura');
+    if(!d.data_raw)erros.push('Data');
+    var tots=substOutorgados.length+substNovoOutorg.length;
+    if(!tots)erros.push('Pelo menos um outorgado');
+  }else{
+    if(!d.razao)erros.push('Razão Social');if(!d.cnpj)erros.push('CNPJ');
+    if(!d.rua)erros.push('Rua');if(!d.num)erros.push('Número');
+    if(!d.bairro)erros.push('Bairro');if(!d.cep)erros.push('CEP');
+    if(!d.cidade)erros.push('Cidade');if(!d.rep_nome)erros.push('Nome do representante');
+    if(!d.rep_cpf)erros.push('CPF');if(!d.rep_rg)erros.push('RG');
+    if(!d.cidade_ass)erros.push('Cidade de assinatura');if(!d.data_raw)erros.push('Data');
+    if(d.tipo==='procuracao'&&!d.validade)erros.push('Validade');
+  }
+  if(erros.length){alert('Campos obrigatórios:\n\n'+erros.join(', '));return false}
+  return true;
+}
+
+/* ===== HTML DO DOCUMENTO (preview + pdf) ===== */
+function buildDocHTML(d){
+  if(d.tipo==='procuracao')return buildHTMLProcuracao(d);
+  if(d.tipo==='contrato')return buildHTMLContrato(d);
+  return buildHTMLSubst(d);
+}
+
+/* --- helpers de HTML compartilhados --- */
+function b(txt){return'<b>'+esc(txt)+'</b>'}
+function p(txt,style){return'<p style="text-align:justify;margin:0 0 10pt;'+(style||'')+'">'+txt+'</p>'}
+function pCenter(txt){return'<p style="text-align:center;margin:0 0 10pt;">'+txt+'</p>'}
+function h(txt){return'<p style="font-weight:bold;text-transform:uppercase;margin:14pt 0 8pt;font-size:11pt;">'+txt+'</p>'}
+function poder(num,txt){return'<p style="margin:0 0 8pt;text-align:justify;padding-left:12pt"><b>'+num+')</b> '+txt+'</p>'}
+
+/* --- PROCURAÇÃO --- */
+function buildHTMLProcuracao(d){
+  var valLabel={1:'1 (um) ano',2:'2 (dois) anos',3:'3 (três) anos'}[d.validade]||d.validade+' anos';
+  var logo=d.logo?'<img src="'+d.logo+'" class="doc-logo" alt="logo">':'';
+  var t1=d.test1;var t2=d.test2;
+  return logo
+    +'<p class="doc-title">PROCURAÇÃO</p>'
+    +p('<b>OUTORGANTE: '+esc(d.razao)+'</b>, com sede na '+esc(endStr(d))+', inscrita no CNPJ/MF sob n.º <b>'+esc(d.cnpj)+'</b>, neste ato representada por seu(s) Representante(s) Legal(is), Sr.(a) <b>'+esc(d.rep_nome)+'</b>, '+esc(d.rep_nac)+', '+esc(d.rep_ecivil)+', '+esc(d.rep_prof)+', inscrito(a) no CPF/MF n.º <b>'+esc(d.rep_cpf)+'</b>, portador(a) da cédula de identidade RG nº <b>'+esc(d.rep_rg)+'</b>, doravante denominada <b>"OUTORGANTE"</b>, nomeia e constitui como seus bastantes procuradores, denominados <b>"OUTORGADOS"</b>:')
+    +p('<b>OUTORGADA: PLUSCARGO INTERNACIONAL LTDA</b>, pessoa jurídica, estabelecida na Praça da República, 62, Sala 111, Centro, Santos/SP, CEP 11.013-010, inscrita no CNPJ/MF sob o nº <b>04.389.187/0001-18</b>, neste ato representada pela sua Diretora <b>PAULA MACHADO JACINTO</b>, brasileira, solteira, despachante aduaneira, inscrita no registro de Despachantes Aduaneiros sob o nº <b>7D/02.682 - 7ª Região Fiscal</b>, portadora da cédula de identidade RG nº <b>1.876.229/ES</b>, inscrita no CPF/MF sob o nº <b>103.803.597-07</b>, residente e domiciliada na Rua Antonio Manoel Moreira, 175, apt 801, Bairro Fazenda, Itajaí/SC, e pelos despachantes abaixo listados:')
+    +p('<b>ELISIANE CRISTINE CALADO</b>, brasileira, casada, despachante aduaneira, inscrita no registro de Despachantes Aduaneiros sob o nº <b>9D.02.725 - 9ª Região Fiscal</b>, portadora da cédula de identidade RG nº <b>6.901.363-5/PR</b>, inscrita no CPF/MF sob o nº <b>029.516.569-39</b>, residente e domiciliada na Rua Carlos Seara, 568, apto 604 - Vila Operária - Itajaí/SC - CEP 88303-200.')
+    +p('<b>NAYARA DA SILVA CADAR</b>, brasileira, solteira, despachante aduaneira, inscrita no registro de Despachantes Aduaneiros sob o nº <b>6D.00.0813 - 6ª Região Fiscal</b>, portadora da cédula de identidade RG nº <b>13.777.491/MG</b>, inscrita no CPF/MF sob o nº <b>067.044.576-23</b>, residente e domiciliada na Rua Nicola Costa, nº 271, Bairro Santa Amélia, Belo Horizonte/MG - CEP 31560-310.')
+    +p('<b>LUCAS ORIGUELA PINTO</b>, brasileiro, solteiro, ajudante de despachante aduaneiro, inscrito no registro de Ajudante de Despachante Aduaneiro sob o nº <b>442.331.778-88</b>, portador da cédula de identidade RG nº <b>37.400.002-5/SP</b>, inscrito no CPF/MF sob o nº <b>442.331.778-88</b>, residente e domiciliado na Rua Haroldo de Camargo, 60, apto 122A, Jardim Castelo, Santos/SP - CEP 11087-500.')
+    +h('Para exercer isoladamente os seguintes poderes:')
+    +poder('A','Representar a outorgante perante todas as Unidades Aduaneiras da Secretaria da Receita Federal em todo o território nacional.')
+    +poder('B','Exercer as atividades previstas nos artigos 808 e incisos I, II, III, IV, V, VI, VII e parágrafos 1º, 2º; 809, incisos II-A e IV e demais artigos do Regulamento Aduaneiro aprovado pelo Decreto 6.759/2009, ser habilitado no Sistema Integrado de Comércio Exterior - SISCOMEX; Sistema Integrado de Gerência do Manifesto do Trânsito e do Armazenamento no MANTRA prevista na Instrução Normativa SRF 102/94, alterada pela Instrução Normativa RFB nº 1.984/20, modalidade para habilitação no Siscomex, previstas no art. 15 da referida Instrução Normativa, podendo nomear despachantes aduaneiros e ajudantes de despachantes aduaneiros, pedir as suas substituições quando necessário, receber as mercadorias desembaraçadas, bem como termos de responsabilidade de Importação e Exportação, inclusive operar Despachos Aduaneiros Simplificados (DAS), Trânsitos Aduaneiros (DTA). Assim como poderes para assinar o Requerimento para habilitação de declarantes de mercadoria nos termos da Instrução Normativa RFB nº 1.984/20 e Portaria Coana nº 72/2020;')
+    +poder('C','Representá-la perante a Receita Federal do Brasil, podendo tudo praticar, requerer, assinar, tomar ciência, requerer cópias, requerer habilitação para operações no Sistema Integrado de Comércio Exterior (Siscomex) na forma prevista na Instrução Normativa RFB nº 1.984/20.')
+    +poder('D','Requerer a constituição de termos de responsabilidade e assiná-lo, em garantia do cumprimento de obrigação tributária, com ou sem fiança bancária, ou pedido de restituição de indébito e ou de compensação, tomar ciência em auto de infração, ou de desistência de vistoria aduaneira, ou de desistência das divergências de peso e volume, em conformidade com o Decreto 8.010, de 16 de maio de 2013 e assiná-los sempre por conta e ordem da Outorgante.')
+    +poder('E','Representar a outorgante fora do curso do despacho, em processos que se reportem a fatos anteriores ou posteriores ao despacho aduaneiro, com pedido e assinatura de carta de correção de nota fiscal, em pedidos de retificação de D.I., autorização para registro de D.I., devolução de mercadoria para o exterior, prorrogação de Admissão Temporária e substituição de mercadoria, cancelamento de declaração de importação, solicitar indébitos, requerer e receber intimações, tomar ciência em processos administrativos, podendo interpor recursos e reclamações previstas em Lei, acompanhá-los até a decisão final, executar tudo o que for exigido pela Legislação Tributária com relação à Importação e Exportação.')
+    +poder('F','Representar a outorgante perante todos os órgãos públicos e departamentos do Ministério da Fazenda, Secretária da Receita Federal, administração de todos os portos e Cia. Docas de todo o país, Ministério dos Transportes/Departamento do Fundo da Marinha Mercante (MT/DFMM), requerer e assinar, perante estes órgãos: solicitação de suspensão/isenção, termos de responsabilidade; termos de fiel depositário; cadastramento e habilitação para acesso ao sistema Mercante, podendo ainda endossar conhecimentos de quaisquer espécies, inclusive de embarque.')
+    +poder('G','Representar a outorgante perante a Agência Nacional de Vigilância Sanitária - ANVISA, do Ministério da Saúde, em conformidade com a RDC-81 de 05/11/2008, para: peticionar realização de fiscalização e liberação sanitária de mercadorias sob vigilância sanitária; acompanhar todas as etapas da inspeção sanitária; recepcionar amostra de contraprova; expressar ciência de atos legais e documentos relacionados à fiscalização; apresentar impugnações, provas e recursos; subscrever termos de responsabilidade para autorização de saída de mercadorias da área alfandegada.')
+    +poder('H','Representar a Outorgante perante o MINISTÉRIO DA AGRICULTURA, PECUÁRIA E ABASTECIMENTO para os atos que se fizerem necessários, podendo assinar os documentos exigidos pela Unidade VIGIAGRO; Vigilância Agropecuária Internacional e pelo SVA/UVAGRO, Termo de Compromisso, Termo de Depositário, Cartas de Correção de Notas Fiscais de Exportação e quaisquer outros documentos pertinentes, podendo requerer e assinar tudo o que se fizer necessário para desembaraço, desconsolidação e liberação de cargas aéreas e marítimas.')
+    +poder('I','Representar também a outorgante perante a Secretaria da Fazenda dos Estados da Federação, inclusive para atuar em defesa de auto de infração em todas as instâncias administrativas, escolher a melhor opção de portos e aeroportos para liberação de cargas de importação ou exportação, efetuar cadastros, representar nas assinaturas de GLME (Guia Para Liberação de Mercadoria Estrangeira), na entrada de Mercadorias estrangeiras, Receber mercadoria importada para entrega aos Transportadores.')
+    +poder('J','Representar a outorgante perante as Unidades ou Órgãos do IBAMA – Instituto Brasileiro do Meio Ambiente e dos Recursos Naturais Renováveis, podendo praticar todos os atos necessários à liberação de produto na importação e na exportação e assinar todos os documentos exigidos para esse expediente.')
+    +poder('K','Firmar declaração de Mercadorias Perigosas e termos de responsabilidade junto à Empresa Brasileira de Infraestrutura Aeroportuária bem como as demais concessionárias de portos e aeroportos do Brasil; representar a outorgante perante as empresas permissionárias de estabelecimento com os RECINTOS ALFANDEGADOS, assinar e prestar todos os serviços pertinentes a contratos de câmbio.')
+    +poder('L','Praticar todos os atos que forem de interesse da outorgante e tudo o mais que se fizer necessário para a prática e fiel cumprimento deste mandato, podendo, ainda, substabelecer esta a outrem, principalmente nos atos em que se exijam profissionais legalmente habilitados, total ou parcialmente, sempre com reservas de iguais poderes.')
+    +poder('M','Os OUTORGADOS não assumem solidariamente qualquer débito, contra ou em nome do outorgante, especialmente as sobre-estadias de contêineres <i>"demurrage"</i> que porventura o OUTORGANTE seja obrigado a pagar ao armador.')
+    +poder('N','Representar a OUTORGANTE perante Empresas de Navegação Marítima, podendo assumir obrigações e assinar quaisquer documentos, incluindo Termos de Assunção de Responsabilidade, Cartas de Indenização (LOI\'s), Acordo de Crédito, Termos Anuais, Declaração de Liberação de Importação e Exportação, Termos de Responsabilidade por Avaria Parcial ou Total de Contêiner, Termos de Reentrega ou Devolução de Contêineres, e todo e qualquer documento perante Armadores, Agências Marítimas, Agentes de Carga e NVOCCs e empresas afins.')
+    +poder('O','Firmar, em nome da Outorgante, a declaração de que trata o subitem 37.2, alínea b, do Anexo II, do RICMS/2002, com efeitos previstos no subitem 37.10 do mesmo anexo, perante a Secretaria de Estado da Fazenda de Minas Gerais.')
+    +poder('P','Requerer, tomar ciência, protocolar, HABILITAÇÃO NO SISCOMEX/RADAR – PESSOA FÍSICA ou JURÍDICA ou REVISÃO DE ESTIMATIVA de acordo como previsto na Instrução Normativa RFB n.º 1.984/2020, publicada em 27/10/2020.')
+    +poder('Q','<b>Esta procuração é válida por '+valLabel+' (a partir da assinatura).</b> Fundamento legal: Decreto nº 6.759/2009 com alterações introduzidas pelos Decretos nºs 7.044/2009, 7.213/2010, 7.296/2010, 7.315/2010 e 8.010/2013 e artigos 653 e seguintes do Código Civil Brasileiro.')
+    +'<br>'
+    +p('A Outorgante se declara ciente não só da responsabilidade civil e criminal decorrente da inveracidade das informações prestadas nesta procuração, como também das sanções civis e penais a que se sujeita, caso este instrumento de mandato exorbite os limites de poder que lhe é permitido delegar.')
+    +p('<b>'+esc(d.cidade_ass)+'/'+esc(d.uf)+'</b>, '+esc(d.data_fmt)+'.','text-align:right;margin-top:20pt')
+    +assinaturasProcuracao(d,t1,t2);
+}
+
+function assinaturasProcuracao(d,t1,t2){
+  return'<div style="margin-top:40pt">'
+    +'<div style="text-align:center;display:inline-block;width:100%">'
+    +'<div style="border-top:1px solid #000;width:60%;margin:0 auto 6pt"></div>'
+    +'<div style="font-weight:bold">'+esc(d.razao)+'</div>'
+    +'<div>'+esc(d.rep_nome)+'</div>'
+    +'<div style="font-size:10pt">CPF: '+esc(d.rep_cpf)+'</div>'
+    +'</div>'
+    +'<div style="margin-top:36pt"><b>TESTEMUNHAS:</b></div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:20pt;margin-top:16pt">'
+    +'<div style="text-align:center"><div style="border-top:1px solid #000;margin-bottom:6pt"></div>'
+    +'<div style="font-weight:bold">'+esc(t1.nome)+'</div><div style="font-size:10pt">CPF: '+esc(t1.cpf)+'</div></div>'
+    +'<div style="text-align:center"><div style="border-top:1px solid #000;margin-bottom:6pt"></div>'
+    +'<div style="font-weight:bold">'+esc(t2.nome)+'</div><div style="font-size:10pt">CPF: '+esc(t2.cpf)+'</div></div>'
+    +'</div></div>';
+}
+
+/* --- CONTRATO --- */
+function buildHTMLContrato(d){
+  var t1=d.test1;var t2=d.test2;
+  var filialTxt='';
+  if(d.filiais&&d.filiais.length){
+    filialTxt=' '+d.filiais.map(function(f){return'e sua filial, inscrita no CNPJ nº <b>'+esc(f.cnpj)+'</b>, estabelecida na '+esc(f.rua)+', nº '+esc(f.num)+', '+esc(f.bairro)+', CEP '+esc(f.cep)+', '+esc(f.cidade)+'/'+esc(f.uf)}).join('; ')+',';
+  }
+  function cl(num,titulo,corpo){
+    return h('CLÁUSULA '+num+' – '+titulo)+corpo;
+  }
+  return '<p class="doc-title">CONTRATO DE PRESTAÇÃO DE SERVIÇOS DE ASSESSORIA E DESPACHO ADUANEIRO</p>'
+    +p('<b>'+esc(d.razao)+'</b>'+filialTxt+', pessoa jurídica de direito privado, inscrita no CNPJ sob nº <b>'+esc(d.cnpj)+'</b>, estabelecida na '+esc(endStr(d))+', neste ato representado por seu representante legal, na forma do seu contrato social, denominada simplesmente como <b>CONTRATANTE</b>.')
+    +p('<b>PLUSCARGO INTERNACIONAL LTDA.</b>, pessoa jurídica de direito privado inscrita no CNPJ/MF sob n.˚ <b>04.389.187/0001-18</b>, com sede e foro em Santos/SP, na Praça Antônio Teles, 15 – 10º andar, Sl. 101/102, Centro, CEP: 11.013-020, neste ato representado por seu representante legal, na forma do seu contrato social, denominada simplesmente como <b>CONTRATADA</b>.')
+    +p('As partes acima nominadas e qualificadas resolvem, de pleno e comum acordo, ajustar o presente contrato de conformidade com as cláusulas e condições seguintes:')
+    +cl('PRIMEIRA','DO OBJETO',
+      p('1.1) O objeto do contrato é a prestação de serviços de Desembaraço Aduaneiro de Processos de Importação e/ou Exportação, nos termos da proposta comercial previamente apresentada pela CONTRATADA a qual fará parte ou constantes do ANEXO I, o qual pode ser periodicamente revisado pelas partes, de comum acordo, sempre que necessário.')
+      +p('1.2) As partes entendem que o presente contrato não assume as características de exclusividade.')
+      +p('1.3) O presente contrato não poderá ser alterado, modificado ou substituído, salvo se assim expressamente acordado entre as partes, mediante a assinatura de termo aditivo, ou quando necessário por mudanças legislativas ou por fatores alheios à vontade das partes.'))
+    +cl('SEGUNDA','DA APRESENTAÇÃO DOS DOCUMENTOS, FORNECIMENTO DE INFORMAÇÕES E CLASSIFICAÇÃO DOS PRODUTOS',
+      p('2.1) O CONTRATANTE se responsabiliza pela veracidade, legitimidade e autenticidade dos documentos fornecidos para habilitação junto aos órgãos governamentais, bem como pela licitude das mercadorias a serem importadas e/ou exportadas, origem dos recursos utilizados no comércio exterior e regularidade das transações comerciais objeto do despacho aduaneiro.')
+      +p('2.2) Constitui ainda responsabilidade da CONTRATANTE prestar as informações necessárias e corretas para os processos de importação e exportação, tais como: pesos, quantidades, volumes (m³), classificação fiscal das mercadorias (NCM), descrição dos produtos, tratamentos tributários, país de origem, <i>incoterm</i>, câmbio etc.')
+      +p('2.3) Em hipótese alguma a CONTRATADA poderá ser responsabilizada pela indicação da classificação fiscal das mercadorias (NCM) para o(s) produto(s) que venha(m) a ser importado(s) pelo CONTRATANTE.')
+      +p('2.4) A CONTRATANTE se responsabiliza totalmente pelo pagamento de multas na importação e exportação, como diferença de impostos e de eventuais multas incidentes em caso de solicitação de alteração de NCM e descrição por parte da Receita Federal, e de multas por discrepâncias nos documentos decorrentes da falta de fornecimento das informações mencionadas nas cláusulas 2.1 e 2.2 acima.')
+      +p('2.5) A entrega dos documentos e a prestação das informações pela CONTRATANTE à CONTRATADA deve ser realizada dentro de um prazo a ser acordado entre as partes, a fim de se garantir tempo hábil para a realização do desembaraço aduaneiro, sendo qualquer ônus gerado por atraso no envio dos documentos por conta da CONTRATANTE.')
+      +p('2.6) A CONTRATADA não possui responsabilidade sobre a prestação do serviço de transporte nacional e internacional, apenas faz a indicação da empresa de transporte e contratação, salvo nas hipóteses em que realizar o agenciamento do transporte internacional mediante cotação especificamente aprovada pelo CONTRATANTE.'))
+    +cl('TERCEIRA','PREÇOS',
+      p('3.1) Os serviços objeto deste contrato serão remunerados conforme consta na proposta comercial para prestação de serviços previamente apresentada ou constantes do ANEXO I pela CONTRATADA e devidamente aprovada pela CONTRATANTE.')
+      +p('3.2) Os preços expressos neste contrato serão reajustados anualmente com base na correção do salário mínimo, na data base de janeiro, sendo encaminhada a nova proposta comercial com os novos valores com 30 (trinta) dias de antecedência.')
+      +p('3.3) Os valores estabelecidos somente serão revisados fora da periodicidade supra definida nas hipóteses abaixo: a) Se ocorrerem quaisquer modificações na alíquota de qualquer tributo, taxa, contribuição ou encargo incidente direta e comprovadamente sobre o objeto deste contrato; b) Criação, modificação, eliminação ou substituição de tributos, taxas, contribuições ou encargos.')
+      +p('3.4) Em qualquer dos casos de alterações de preços, os mesmos serão consolidados mediante prévia negociação entre as partes, mediante a assinatura de termo aditivo.')
+      +p('3.5) Os Regimes Aduaneiros Especiais, Regimes Atípicos, Estudos de tratamentos de produtos específicos e outros serviços não inclusos no ANEXO I serão analisados individualmente pela CONTRATADA, devendo a CONTRATANTE solicitar uma proposta individual.')
+      +p('3.6) A CONTRATADA poderá realizar o desembaraço aduaneiro em todos os recintos alfandegários no Brasil, mediante a contratação de um parceiro (despachante aduaneiro), sendo o CONTRATANTE responsável pelo pagamento da taxa de expediente.'))
+    +cl('QUARTA','POLÍTICA DE ADIANTAMENTO DE NUMERÁRIO',
+      p('4.1) A CONTRATANTE reconhece neste ato que para fins da regular execução do objeto deste contrato, é imprescindível o adiantamento de numerário com o intuito do pagamento dos impostos, taxas, contribuições, encargos e demais despesas envolvidas em um regular processo de desembaraço aduaneiro.')
+      +p('4.2) A necessidade de tais adiantamentos faz-se necessária pois as despesas são devidas sempre de forma adiantada, cujo pagamento dos impostos dá-se previamente via débito em conta corrente, sob pena da carga não ser desembaraçada.')
+      +p('4.3) Caso a CONTRATANTE não efetue tal adiantamento, a CONTRATADA ficará impedida de executar o objeto deste contrato, ficando desde já eximida de qualquer ônus ou responsabilidade decorrente da liberação tardia.')
+      +p('4.4) Ao tomar conhecimento dos processos que serão encaminhados para si, deverá a CONTRATADA fazer a projeção de todos os custos referentes à liberação dos mesmos, e repassar previamente para a Contratante realizar o respectivo adiantamento de numerário.')
+      +p('4.5) A CONTRATANTE reconhece que a projeção dos custos supra citada é uma expectativa do custo final, razão pela qual poderá, mediante comprovação do custo final, ter que complementar eventual saldo remanescente à CONTRATADA.')
+      +p('4.6 a 4.9) Caso o numerário adiantado não seja suficiente para o pagamento integral dos custos relativos ao respectivo processo, deverá a CONTRATANTE, tão logo tome conhecimento da necessidade de complementação, assim proceder. A CONTRATADA poderá, a seu exclusivo critério, complementar valores visando a agilidade e rápida conclusão do processo de desembaraço, sendo este ressarcido imediatamente pela CONTRATANTE após a prestação de contas, sendo autorizada a realizar a compensação de valores entre processos.'))
+    +cl('QUINTA','FATURAMENTO E COBRANÇA',
+      p('5.1) O Contratado apresentará à CONTRATANTE, logo após a conclusão do evento, o Demonstrativo de Despesas acompanhado dos Documentos de Cobrança, bem como guias de Recolhimento de Impostos, Taxas e Despesas do processo, quando houver. Entende-se como Documento de Cobrança: nota fiscal, fatura, recibo, nota de débito ou qualquer outro documento previsto em Lei.'))
+    +cl('SEXTA','PRAZO DE CONTRATO, RESCISÃO E PENALIDADES',
+      p('6.1) O presente contrato terá validade de 12 (doze) meses.')
+      +p('6.2) Qualquer das partes poderá rescindir o presente instrumento, sem qualquer ônus, mediante aviso prévio escrito com antecedência mínima de 30 (trinta) dias, ficando asseguradas as obrigações assumidas até seu termo final.'))
+    +cl('SÉTIMA','DO PAGAMENTO',
+      p('7.1) Os pagamentos serão efetuados em até 10 (dez) dias corridos após a apresentação dos documentos de cobrança, inclusive nota fiscal, conforme indicado na proposta comercial ou indicada no ANEXO I.')
+      +p('7.2) Os documentos de cobrança devem ser apresentados à CONTRATANTE no seu endereço ou via e-mail, caso seja solicitação do cliente, até 7 (sete) dias após a finalização do processo.'))
+    +cl('OITAVA','DA GESTÃO DA OPERAÇÃO, RISCO, DESPESAS E MULTAS',
+      p('8.1) A CONTRATADA e os outorgados que receberão o mandato particular para agirem em nome da CONTRATANTE não responderão de forma solidária ou subsidiária por eventuais descumprimentos da CONTRATANTE, no que se refere às normas legais pertinentes às operações de importação e exportação, inclusive as obrigações tributárias, fiscais e as decorrentes de autos de infração, devendo a CONTRATANTE assumir isoladamente tais encargos, salvo se a CONTRATADA tiver dado causa.')
+      +p('8.2) A responsabilidade da CONTRATADA limita-se ao valor do serviço a que fora efetivamente CONTRATADA; ressalvada a possibilidade de acionamento de seguro de responsabilidade civil.')
+      +p('8.3) Após a nacionalização dos produtos, cabe ao importador a emissão da Nota Fiscal de entrada e levantamento dos custos dos produtos importados, que são de inteira responsabilidade do CONTRATANTE.')
+      +p('8.4 a 8.5) O controle de câmbio é de responsabilidade do CONTRATANTE, que deve informar ao banco/corretora a D.I. ou DU-E para ser vinculada. A CONTRATADA informará na D.I. apenas a indicação do tipo de cobertura cambial conforme Siscomex.')
+      +p('8.6) Cabe ao CONTRATANTE a criação e manutenção do catálogo de produtos no sistema SISCOMEX para a DUIMP, salvo na hipótese em que contratar especificamente esse serviço com o CONTRATADO.')
+      +p('8.7 a 8.10) Todas as despesas decorrentes dos trâmites das importações e exportações, incluindo o conserto, lavagem e aluguel de container (<i>demurrage</i>), bem como todas as multas incidentes no processo, são de inteira responsabilidade do CONTRATANTE. O CONTRATANTE declara ter conhecimento do teor da Instrução Normativa RFB n.º 2090/22.'))
+    +cl('NONA','DA NOVAÇÃO',
+      p('9.1) Fica expressa e irrevogavelmente estabelecido que a abstenção, pelas partes contratantes, de quaisquer direitos ou faculdades que lhes assistam pelo contrato, ou a concordância com o atraso no cumprimento de obrigações da outra parte, não afetarão aqueles direitos ou faculdades que poderão ser exercidas a qualquer momento.'))
+    +cl('DÉCIMA','DOS ASPECTOS TRABALHISTAS',
+      p('10.1) O presente Contrato é de natureza civil, não estabelecendo qualquer vínculo empregatício entre a CONTRATANTE e os empregados, contratados, subcontratados e/ou prepostos que a CONTRATADA empregar na execução dos serviços, cabendo à CONTRATADA a exclusiva e total responsabilidade pelo pagamento de todos os encargos trabalhistas, previdenciários, acidentários e fiscais.')
+      +p('10.2) Se qualquer demanda judicial ou ação trabalhista for proposta contra a CONTRATANTE em razão dos Serviços prestados pela CONTRATADA, esta deverá requerer em juízo a exclusão da CONTRATANTE do feito, assumindo todos os ônus decorrentes dessas demandas.')
+      +p('10.3) A CONTRATADA atenderá ao disposto na legislação trabalhista quanto à não utilização de mão de obra em trabalho noturno, escravo, perigoso ou insalubre, de menores de dezoito anos e de qualquer trabalho a menores de dezesseis anos, salvo na condição de aprendiz.'))
+    +cl('DÉCIMA PRIMEIRA','FRAUDE E CORRUPÇÃO (Lei nº 12.846/13 e Decreto nº 8.420/15)',
+      p('11.1 a 11.4) A CONTRATADA não poderá oferecer, dar ou se comprometer a dar a quem quer que seja qualquer pagamento, doação, compensação, gratificação, comissão, vantagem financeira ou não financeira ou benefício de qualquer espécie com a finalidade de ser contratada ou para obter qualquer tipo de vantagem indevida que caracterize prática ilegal ou de corrupção, em conformidade com a Lei nº 12.846/13 (Lei de Anticorrupção), regulamentada pelo Decreto nº 8.420/15.'))
+    +cl('DÉCIMA SEGUNDA','CONFIDENCIALIDADE',
+      p('12.1 a 12.8) É vedado às Partes prestar informações a terceiros sobre a natureza ou andamento dos Serviços objeto do presente Contrato, bem como divulgar informações fornecidas por uma Parte à outra referentes a segredo industrial e/ou comercial, <i>know-how</i>, especificações, procedimentos, processos produtivos e todas as informações técnicas. As obrigações de confidencialidade terão validade durante a vigência deste Contrato e sobreviverão ao término do negócio jurídico pelo prazo de 05 (cinco) anos.'))
+    +cl('DÉCIMA TERCEIRA','DA LEI GERAL DE PROTEÇÃO DE DADOS',
+      p('13.1 a 13.3) A CONTRATANTE, em atendimento à Lei 13.709/2018 – LGPD, utiliza os dados pessoais dos despachantes aduaneiros indicados pela CONTRATADA na procuração de representação para atividades relacionadas ao desembaraço aduaneiro no ambiente SISCOMEX e cadastro em instituições financeiras. Os dados poderão ser compartilhados com Instituições Financeiras, Receita Federal e outros órgãos públicos, sendo armazenados por 7 (sete) anos a partir do ano seguinte à utilização para operação aduaneira.'))
+    +cl('DÉCIMA QUARTA','DISCRIMINAÇÃO DE GÊNERO, TRABALHO INFANTIL, FORÇADO E ANÁLOGO À ESCRAVO',
+      p('14.1 a 14.2) A CONTRATADA se obriga a não praticar qualquer conduta discriminatória a raça ou gênero, bem como não contratar e/ou utilizar mão de obra infantil ou análoga à escrava, empregando unicamente mão de obra de maiores de 18 (dezoito) anos, salvo adolescentes maiores de 14 (catorze) anos na condição de aprendiz.'))
+    +cl('DÉCIMA QUINTA','CASO FORTUITO OU DE FORÇA MAIOR',
+      p('15.1 a 15.2) As Partes não responderão por prejuízos causados por casos fortuitos ou de força maior devidamente comprovados, incluindo: guerra, revolução, estado de sítio, intervenção governamental, greve nacional, sabotagem, pandemias, tempestades, inundações ou fatos climáticos que impeçam o perfeito cumprimento das obrigações contratuais.'))
+    +cl('DÉCIMA SEXTA','DAS DISPOSIÇÕES GERAIS',
+      p('16.1 a 16.7) O presente Instrumento não poderá ser cedido ou transferido sem prévio consentimento por escrito da outra parte. O CONTRATANTE se compromete a manter atualizadas todas as suas inscrições, licenças, alvarás, autorizações e registros perante todos os órgãos públicos, em especial o Radar perante a Secretaria da Receita Federal. Toda documentação original dos processos deverá ficar arquivada pelo CONTRATANTE por um prazo de 5 (cinco) anos, podendo ser digitalizada conforme a Lei n.º 12.682/12.'))
+    +cl('DÉCIMA SÉTIMA','DA ASSINATURA',
+      p('17.1) As Partes admitem a assinatura eletrônica do presente Instrumento, transmitida por meio de certificação digital pública ou privada, como válida e hábil para garantir sua integridade e a autoria, nos termos do art. 10, § 2º, da Medida Provisória n.º 2.200-2, de 24 de agosto de 2001.'))
+    +cl('DÉCIMA OITAVA','DO FORO',
+      p('18.1) O presente contrato será regido e interpretado de acordo com as leis vigentes na República Federativa do Brasil, especialmente o art. 593 e seguintes do Código Civil de 2002.')
+      +p('18.2) Para a solução de quaisquer divergências oriundas do presente contrato, fica eleito o foro da Comarca de Santos - Estado de São Paulo, com renúncia de qualquer outro, por mais privilegiado que seja.'))
+    +'<br>'
+    +p('E por estarem justas e contratadas, firmam o presente em 2 (duas) vias de igual teor e forma, na presença de 2 (duas) testemunhas abaixo, para que se produza os seus efeitos jurídicos.')
+    +p('<b>Santos, em '+esc(d.data_fmt)+'.</b>','text-align:center;margin-top:20pt')
+    +assinaturasContrato(d,t1,t2);
+}
+
+function assinaturasContrato(d,t1,t2){
+  return'<div style="margin-top:50pt">'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:30pt">'
+    +'<div style="text-align:center"><div style="border-top:1px solid #000;margin-bottom:6pt"></div>'
+    +'<div style="font-weight:bold">'+esc(d.razao)+'</div><div>CONTRATANTE</div></div>'
+    +'<div style="text-align:center"><div style="border-top:1px solid #000;margin-bottom:6pt"></div>'
+    +'<div style="font-weight:bold">PLUSCARGO INTERNACIONAL LTDA</div><div>CONTRATADA</div></div>'
+    +'</div>'
+    +'<div style="margin-top:40pt"><b>TESTEMUNHAS</b></div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:30pt;margin-top:16pt">'
+    +'<div style="text-align:center"><div style="border-top:1px solid #000;margin-bottom:6pt"></div>'
+    +'<div style="font-weight:bold">'+esc(t1.nome)+'</div><div style="font-size:10pt">CPF: '+esc(t1.cpf)+'</div></div>'
+    +'<div style="text-align:center"><div style="border-top:1px solid #000;margin-bottom:6pt"></div>'
+    +'<div style="font-weight:bold">'+esc(t2.nome)+'</div><div style="font-size:10pt">CPF: '+esc(t2.cpf)+'</div></div>'
+    +'</div></div>';
+}
+
+/* --- SUBSTABELECIMENTO --- */
+function buildHTMLSubst(d){
+  var subst=SUBST_PESSOAS[d.subst_key]||SUBST_PESSOAS.paula;
+  var todos=[];
+  d.outorgados_idx.forEach(function(i){todos.push(OUTORG_PRECAD[i])});
+  d.outorgados_novos.forEach(function(o){todos.push(o)});
+  var outorgTxt=todos.map(function(o){
+    var linha='<b>'+esc(o.nome.toUpperCase())+'</b>, '+esc(o.nac)+', '+esc(o.ecivil)+', '+esc(o.prof);
+    if(o.cpf)linha+=', portador do CPF nº <b>'+esc(o.cpf)+'</b>';
+    if(o.rg)linha+=' e RG nº <b>'+esc(o.rg)+'</b>';
+    if(o.end)linha+=', residente e domiciliado à '+esc(o.end);
+    return'<p style="margin:0 0 8pt;text-align:justify;padding-left:12pt">'+linha+';</p>';
+  }).join('');
+  return'<p class="doc-title">SUBSTABELECIMENTO</p>'
+    +p('Pelo presente instrumento particular, <b>'+esc(subst.nome.toUpperCase())+'</b>, '+esc(subst.nac)+', '+esc(subst.ecivil)+', inscrito(a) no CPF nº <b>'+esc(subst.cpf)+'</b>, com registro de '+esc(subst.prof)+' <b>'+esc(subst.registro)+'</b>, portador(a) da cédula de identidade RG nº <b>'+esc(subst.rg)+'</b>, residente e domiciliado(a) na '+esc(subst.end)+', substabelece com reserva de iguais poderes, estes outorgados pela empresa <b>'+esc(d.razao_emp)+'</b>, pessoa jurídica, inscrita no CNPJ nº <b>'+esc(d.cnpj_emp)+'</b>.')
+    +h('Outorga:')
+    +outorgTxt
+    +h('Exercerem isoladamente os seguintes poderes:')
+    +poder('1','Exercer as atividades relacionadas ao despacho aduaneiro de mercadorias importadas e exportadas, bem assim, quaisquer outras relativas às operações de comércio exterior, conforme o art. 718 do Regulamento Aduaneiro, aprovado pelo Decreto nº 4.543/02.')
+    +poder('2','Requerer e assinar termos de responsabilidade, com ou sem fiança bancária, assinar declarações, recibos e quaisquer documentos, receber e dar quitações de qualquer espécie, inclusive de depósitos de restituições.')
+    +poder('3','Receber e tomar ciência de notificações e intimações, concordar, em nome do outorgante, com exigências fiscais ou apresentar contestações às exigências fiscais e recursos às de Segunda Instância ou instância especial.')
+    +poder('4','Pagar impostos de importação e exportação, sobre produtos industrializados, sobre circulação de mercadorias, penalidades pecuniárias, por ventura impostas, bem como taxas e demais despesas havidas nas importações, exportações e trânsito de mercadoria.')
+    +poder('5','Representar a outorgante perante a Empresa de Portos do Brasil S.A. – PORTOBRÁS, as Companhias Docas de todos os portos brasileiros, a Empresa Brasileira de Infraestrutura Aeroportuária, bem como as demais concessionárias de portos e aeroportos do Brasil.')
+    +poder('6','Representar a outorgante perante as empresas permissionárias de estabelecimentos com os RECINTOS ALFANDEGADOS, podendo assinar e processar na condição de habilitado a Declaração de Trânsito Aduaneiro (DTA), bem como todos os expedientes necessários ao depósito de mercadoria importada ou destinada à exportação, inclusive despachos aduaneiros de admissão e/ou nacionalização para consumo, total ou parcial.')
+    +poder('7','Representar a outorgante perante toda e qualquer Repartição Pública, em particular perante todos os órgãos do Ministério da Fazenda, Secretaria da Receita Federal e seus respectivos órgãos, Superintendências Regionais da Receita Federal, Inspetorias da Receita Federal instalados no território nacional, bem como perante o Banco do Brasil S.A., o Banco Central do Brasil, a Secretaria da Fazenda Estadual e a Secretaria da Fazenda Municipal.')
+    +poder('8','Representar a outorgante perante a ANVISA (Agência Nacional de Vigilância Sanitária), podendo receber e firmar Autos de Infração Sanitária, notificações, decisões administrativas e demais termos legais emitidos pela ANVISA, podendo ainda apresentar defesas, impugnações e recursos administrativos.')
+    +poder('9','Representar a outorgante perante o Serviço de Vigilância Agropecuária – SVA/UVAGRO, para assinar os documentos exigidos, inclusive Termo de Depositário (FORMULÁRIO III) e Termo de Compromisso (FORMULÁRIO IV), e demais órgãos relacionados ao comércio exterior.')
+    +poder('10','Poderes especiais autorizando também, subscrever Termo de Responsabilidade em garantia do cumprimento de Obrigação Tributária, pedido de restituição de indébito, de compensação ou desistências de vistorias, podendo praticar perante estas entidades todos os atos que forem de interesse da outorgante, assinando documentos, requerimentos, contratos, recebendo e dando quitação, especialmente no que diz respeito à importação e exportação de mercadorias, podendo ainda contratar e substabelecer despachante aduaneiro e ajudantes de despachante aduaneiro, total ou parcialmente, sempre com reserva de iguais poderes, <b>com validade até '+esc(d.validade_fmt)+'</b>.')
+    +'<br>'
+    +p('<b>'+esc(d.cidade_ass)+'/'+esc(d.uf_ass)+'</b>, '+esc(d.data_fmt)+'.','text-align:right;margin-top:20pt')
+    +'<div style="margin-top:50pt;text-align:center">'
+    +'<div style="border-top:1px solid #000;width:50%;margin:0 auto 6pt"></div>'
+    +'<div style="font-weight:bold">'+esc(subst.nome.toUpperCase())+'</div>'
+    +'<div style="font-size:10pt">CPF: '+esc(subst.cpf)+'</div>'
+    +'</div>';
+}
+
+/* ===== PREVIEW ===== */
+function gerarPreview(){
+  var d=collectForm();
+  if(!validateForm(d))return;
+  var html=buildDocHTML(d);
+  document.getElementById('docPage').innerHTML=html;
+  document.getElementById('previewArea').classList.remove('hidden');
+  document.getElementById('previewArea').scrollIntoView({behavior:'smooth'});
+}
+function fecharPreview(){document.getElementById('previewArea').classList.add('hidden')}
+
+/* ===== PDF via html2canvas ===== */
+function gerarPDF(){
+  var d=collectForm();
+  if(!validateForm(d))return;
+  showLoading('Renderizando documento...');
+  var page=document.getElementById('docPage');
+  html2canvas(page,{scale:2,useCORS:true,backgroundColor:'#ffffff',logging:false}).then(function(canvas){
+    showLoading('Gerando PDF...');
+    var imgData=canvas.toDataURL('image/jpeg',0.95);
+    var jsPDF=window.jspdf.jsPDF;
+    var pdf=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+    var W=210,H=297;
+    var cw=canvas.width,ch=canvas.height;
+    var ratio=W/cw;
+    var imgH=ch*ratio;
+    var pos=0;
+    while(pos<imgH){
+      if(pos>0)pdf.addPage();
+      pdf.addImage(imgData,'JPEG',0,-(pos),W,imgH,undefined,'FAST');
+      pos+=H;
+    }
+    var nome=(d.tipo==='procuracao'?'Procuracao':d.tipo==='contrato'?'Contrato':'Substabelecimento')
+      +' - '+(d.razao||d.razao_emp||'PLUSCARGO')+' - '+(d.data_raw||d.data_raw||'').replace(/-/g,'')
+      +'.pdf';
+    pdf.save(nome);
+    hideLoading();toast('PDF gerado com sucesso!');
+  }).catch(function(e){hideLoading();alert('Erro ao gerar PDF:\n\n'+e.message)});
+}
+
+/* ===== DOCX via docx.js ===== */
+function gerarDOCX(){
+  if(!window.docx){toast('Biblioteca DOCX ainda carregando, aguarde...');return}
+  var d=collectForm();
+  if(!validateForm(d))return;
+  showLoading('Gerando DOCX...');
+
+  var Doc=docx.Document,Par=docx.Paragraph,Run=docx.TextRun,Sp=docx.Spacing,
+      HRule=docx.HeadingLevel,Align=docx.AlignmentType,
+      ImageRun=docx.ImageRun,Pct=docx.convertMillimetersToTwip;
+
+  var children=[];
+
+  function addPar(text,opts){
+    opts=opts||{};
+    var runs=[];
+    /* suporte simples a negrito via marcador ** */
+    var parts=text.split(/(\*\*[^*]+\*\*)/g);
+    parts.forEach(function(part){
+      if(part.startsWith('**')&&part.endsWith('**')){
+        runs.push(new Run({text:part.slice(2,-2),bold:true,font:'Times New Roman',size:24}));
+      }else{
+        runs.push(new Run({text:part,font:'Times New Roman',size:24,italics:opts.italics||false}));
+      }
+    });
+    children.push(new Par({
+      children:runs,
+      alignment:opts.align||Align.JUSTIFIED,
+      spacing:{after:160,line:320},
+      indent:opts.indent?{left:Pct(opts.indent)}:undefined
+    }));
+  }
+
+  function addTitulo(text){
+    children.push(new Par({
+      children:[new Run({text:text,bold:true,font:'Times New Roman',size:28,allCaps:true})],
+      alignment:Align.CENTER,
+      spacing:{after:320,before:0}
+    }));
+  }
+
+  function addSubtitulo(text){
+    children.push(new Par({
+      children:[new Run({text:text,bold:true,font:'Times New Roman',size:24,allCaps:true})],
+      alignment:Align.LEFT,
+      spacing:{before:200,after:120}
+    }));
+  }
+
+  function addEspaco(){children.push(new Par({children:[new Run({text:'',font:'Times New Roman',size:24})],spacing:{after:80}}))}
+
+  function addAssinaturaDupla(esq_nome,esq_cargo,dir_nome,dir_cargo){
+    /* linha de assinatura simples usando tabs */
+    children.push(new Par({children:[new Run({text:'',font:'Times New Roman',size:24})],spacing:{before:600,after:0}}));
+    children.push(new Par({
+      children:[
+        new Run({text:'______________________________________',font:'Times New Roman',size:24}),
+        new Run({text:'\t\t',font:'Times New Roman',size:24}),
+        new Run({text:'______________________________________',font:'Times New Roman',size:24}),
+      ],alignment:Align.LEFT,spacing:{after:80}
+    }));
+    children.push(new Par({
+      children:[
+        new Run({text:esq_nome,bold:true,font:'Times New Roman',size:22}),
+        new Run({text:'\t\t\t',font:'Times New Roman',size:22}),
+        new Run({text:dir_nome,bold:true,font:'Times New Roman',size:22}),
+      ],alignment:Align.LEFT,spacing:{after:40}
+    }));
+    children.push(new Par({
+      children:[
+        new Run({text:esq_cargo,font:'Times New Roman',size:22}),
+        new Run({text:'\t\t\t\t',font:'Times New Roman',size:22}),
+        new Run({text:dir_cargo,font:'Times New Roman',size:22}),
+      ],alignment:Align.LEFT,spacing:{after:40}
+    }));
+  }
+
+  function addAssinaturaSimples(nome,cpf){
+    children.push(new Par({children:[new Run({text:'',font:'Times New Roman',size:24})],spacing:{before:600,after:0}}));
+    children.push(new Par({children:[new Run({text:'______________________________________',font:'Times New Roman',size:24})],alignment:Align.CENTER,spacing:{after:80}}));
+    children.push(new Par({children:[new Run({text:nome,bold:true,font:'Times New Roman',size:24})],alignment:Align.CENTER,spacing:{after:40}}));
+    if(cpf)children.push(new Par({children:[new Run({text:'CPF: '+cpf,font:'Times New Roman',size:22})],alignment:Align.CENTER,spacing:{after:40}}));
+  }
+
+  function addTestemunhas(t1,t2){
+    addSubtitulo('TESTEMUNHAS');
+    children.push(new Par({children:[new Run({text:'',font:'Times New Roman',size:24})],spacing:{before:400,after:0}}));
+    children.push(new Par({
+      children:[
+        new Run({text:'1. ____________________________________',font:'Times New Roman',size:24}),
+        new Run({text:'\t\t',font:'Times New Roman',size:24}),
+        new Run({text:'2. ____________________________________',font:'Times New Roman',size:24}),
+      ],alignment:Align.LEFT,spacing:{after:80}
+    }));
+    children.push(new Par({
+      children:[
+        new Run({text:t1.nome,bold:true,font:'Times New Roman',size:22}),
+        new Run({text:'\t\t\t\t',font:'Times New Roman',size:22}),
+        new Run({text:t2.nome,bold:true,font:'Times New Roman',size:22}),
+      ],alignment:Align.LEFT,spacing:{after:40}
+    }));
+    children.push(new Par({
+      children:[
+        new Run({text:'CPF: '+t1.cpf,font:'Times New Roman',size:22}),
+        new Run({text:'\t\t\t\t\t',font:'Times New Roman',size:22}),
+        new Run({text:'CPF: '+t2.cpf,font:'Times New Roman',size:22}),
+      ],alignment:Align.LEFT,spacing:{after:40}
+    }));
+  }
+
+  /* ---- CONSTRUÇÃO POR TIPO ---- */
+  if(d.tipo==='procuracao'){
+    addTitulo('PROCURAÇÃO');
+    addPar('**OUTORGANTE: '+d.razao+'**, com sede na '+endStr(d)+', inscrita no CNPJ/MF sob n.º **'+d.cnpj+'**, neste ato representada por seu(s) Representante(s) Legal(is), Sr.(a) **'+d.rep_nome+'**, '+d.rep_nac+', '+d.rep_ecivil+', '+d.rep_prof+', inscrito(a) no CPF/MF n.º **'+d.rep_cpf+'**, portador(a) da cédula de identidade RG nº **'+d.rep_rg+'**, doravante denominada **"OUTORGANTE"**, nomeia e constitui como seus bastantes procuradores, denominados **"OUTORGADOS"**:');
+    addPar('**OUTORGADA: PLUSCARGO INTERNACIONAL LTDA**, pessoa jurídica, estabelecida na Praça da República, 62, Sala 111, Centro, Santos/SP, CEP 11.013-010, inscrita no CNPJ/MF sob o nº **04.389.187/0001-18**, neste ato representada pela sua Diretora **PAULA MACHADO JACINTO**, brasileira, solteira, despachante aduaneira, inscrita no registro de Despachantes Aduaneiros sob o nº **7D/02.682 - 7ª Região Fiscal**, RG nº **1.876.229/ES**, CPF/MF nº **103.803.597-07**, residente na Rua Antonio Manoel Moreira, 175, apt 801, Bairro Fazenda, Itajaí/SC, e pelos despachantes abaixo listados:');
+    addPar('**ELISIANE CRISTINE CALADO**, brasileira, casada, despachante aduaneira, registro **9D.02.725 - 9ª Região Fiscal**, RG **6.901.363-5/PR**, CPF **029.516.569-39**, Rua Carlos Seara, 568, apto 604, Vila Operária, Itajaí/SC, CEP 88303-200.');
+    addPar('**NAYARA DA SILVA CADAR**, brasileira, solteira, despachante aduaneira, registro **6D.00.0813 - 6ª Região Fiscal**, RG **13.777.491/MG**, CPF **067.044.576-23**, Rua Nicola Costa, 271, Bairro Santa Amélia, Belo Horizonte/MG, CEP 31560-310.');
+    addPar('**LUCAS ORIGUELA PINTO**, brasileiro, solteiro, ajudante de despachante aduaneiro, registro **442.331.778-88**, RG **37.400.002-5/SP**, CPF **442.331.778-88**, Rua Haroldo de Camargo, 60, apto 122A, Jardim Castelo, Santos/SP, CEP 11087-500.');
+    addSubtitulo('Para exercer isoladamente os seguintes poderes:');
+    var poderTxts=[
+      ['A','Representar a outorgante perante todas as Unidades Aduaneiras da Secretaria da Receita Federal em todo o território nacional.'],
+      ['B','Exercer as atividades previstas nos artigos 808 e incisos do Regulamento Aduaneiro aprovado pelo Decreto 6.759/2009, ser habilitado no SISCOMEX e MANTRA, podendo nomear despachantes aduaneiros, receber as mercadorias desembaraçadas, bem como termos de responsabilidade de Importação e Exportação, inclusive operar Despachos Aduaneiros Simplificados (DAS) e Trânsitos Aduaneiros (DTA).'],
+      ['C','Representá-la perante a Receita Federal do Brasil, podendo tudo praticar, requerer, assinar, tomar ciência, requerer cópias e requerer habilitação para operações no SISCOMEX na forma prevista na Instrução Normativa RFB nº 1.984/20.'],
+      ['D','Requerer a constituição de termos de responsabilidade e assiná-lo, em garantia do cumprimento de obrigação tributária, com ou sem fiança bancária, ou pedido de restituição de indébito e ou de compensação, tomar ciência em auto de infração, ou de desistência de vistoria aduaneira.'],
+      ['E','Representar a outorgante fora do curso do despacho, em processos que se reportem a fatos anteriores ou posteriores ao despacho aduaneiro, com pedido e assinatura de carta de correção de nota fiscal, em pedidos de retificação de D.I., autorização para registro de D.I., devolução de mercadoria para o exterior, prorrogação de Admissão Temporária e substituição de mercadoria, cancelamento de declaração de importação, solicitar indébitos, requerer e receber intimações, tomar ciência em processos administrativos.'],
+      ['F','Representar a outorgante perante todos os órgãos públicos e departamentos do Ministério da Fazenda, Secretária da Receita Federal, administração de todos os portos e Cia. Docas de todo o país, Ministério dos Transportes/Departamento do Fundo da Marinha Mercante (MT/DFMM).'],
+      ['G','Representar a outorgante perante a ANVISA, do Ministério da Saúde, em conformidade com a RDC-81 de 05/11/2008, para peticionar realização de fiscalização e liberação sanitária de mercadorias sob vigilância sanitária; acompanhar as etapas da inspeção sanitária; subscrever termos de responsabilidade para autorização de saída de mercadorias da área alfandegada.'],
+      ['H','Representar a Outorgante perante o MINISTÉRIO DA AGRICULTURA, PECUÁRIA E ABASTECIMENTO para os atos que se fizerem necessários, podendo assinar os documentos exigidos pela Unidade VIGIAGRO, Vigilância Agropecuária Internacional e pelo SVA/UVAGRO, Termo de Compromisso, Termo de Depositário, Cartas de Correção de Notas Fiscais de Exportação e quaisquer outros documentos pertinentes.'],
+      ['I','Representar também a outorgante perante a Secretaria da Fazenda dos Estados da Federação, inclusive para atuar em defesa de auto de infração em todas as instâncias administrativas, escolher a melhor opção de portos e aeroportos para liberação de cargas, efetuar cadastros, representar nas assinaturas de GLME.'],
+      ['J','Representar a outorgante perante as Unidades ou Órgãos do IBAMA, podendo praticar todos os atos necessários à liberação de produto na importação e na exportação e assinar todos os documentos exigidos para esse expediente.'],
+      ['K','Firmar declaração de Mercadorias Perigosas e termos de responsabilidade junto à Empresa Brasileira de Infraestrutura Aeroportuária, bem como as demais concessionárias de portos e aeroportos do Brasil; representar a outorgante perante as empresas permissionárias de estabelecimento com os RECINTOS ALFANDEGADOS.'],
+      ['L','Praticar todos os atos que forem de interesse da outorgante e tudo o mais que se fizer necessário para a prática e fiel cumprimento deste mandato, podendo, ainda, substabelecer esta a outrem, principalmente nos atos em que se exijam profissionais legalmente habilitados, total ou parcialmente, sempre com reservas de iguais poderes.'],
+      ['M','Os OUTORGADOS não assumem solidariamente qualquer débito, contra ou em nome do outorgante, especialmente as sobre-estadias de contêineres "demurrage" que porventura o OUTORGANTE seja obrigado a pagar ao armador.'],
+      ['N','Representar a OUTORGANTE perante Empresas de Navegação Marítima, podendo assumir obrigações e assinar quaisquer documentos, incluindo Termos de Assunção de Responsabilidade, Cartas de Indenização (LOI\'s), Acordo de Crédito, Termos Anuais, Declaração de Liberação de Importação e Exportação e todo e qualquer documento perante Armadores, Agências Marítimas, Agentes de Carga e NVOCCs.'],
+      ['O','Firmar, em nome da Outorgante, a declaração de que trata o subitem 37.2, alínea b, do Anexo II, do RICMS/2002, perante a Secretaria de Estado da Fazenda de Minas Gerais.'],
+      ['P','Requerer, tomar ciência, protocolar, HABILITAÇÃO NO SISCOMEX/RADAR – PESSOA FÍSICA ou JURÍDICA ou REVISÃO DE ESTIMATIVA de acordo como previsto na Instrução Normativa RFB n.º 1.984/2020, publicada em 27/10/2020.'],
+      ['Q','**Esta procuração é válida por '+({1:'1 (um) ano',2:'2 (dois) anos',3:'3 (três) anos'}[d.validade]||d.validade+' anos')+' (a partir da assinatura).** Fundamento legal: Decreto nº 6.759/2009 com alterações introduzidas pelos Decretos nºs 7.044/2009, 7.213/2010, 7.296/2010, 7.315/2010 e 8.010/2013 e artigos 653 e seguintes do Código Civil Brasileiro.'],
+    ];
+    poderTxts.forEach(function(pp){addPar('**'+pp[0])**) '+pp[1],{indent:10})});
+    addEspaco();
+    addPar('A Outorgante se declara ciente não só da responsabilidade civil e criminal decorrente da inveracidade das informações prestadas nesta procuração, como também das sanções civis e penais a que se sujeita, caso este instrumento de mandato exorbite os limites de poder que lhe é permitido delegar.');
+    addEspaco();
+    addPar('**'+d.cidade_ass+'/'+d.uf+'**, '+d.data_fmt+'.',{align:Align.RIGHT});
+    addAssinaturaSimples(d.razao+'\n'+d.rep_nome,'CPF: '+d.rep_cpf);
+    addTestemunhas(d.test1,d.test2);
+
+  } else if(d.tipo==='contrato'){
+    addTitulo('CONTRATO DE PRESTAÇÃO DE SERVIÇOS DE ASSESSORIA E DESPACHO ADUANEIRO');
+    var filialTxt2='';if(d.filiais&&d.filiais.length){filialTxt2=' '+d.filiais.map(function(f){return'e sua filial, inscrita no CNPJ nº **'+f.cnpj+'**, estabelecida na '+f.rua+', nº '+f.num+', '+f.bairro+', CEP '+f.cep+', '+f.cidade+'/'+f.uf}).join('; ')+',';}
+    addPar('**'+d.razao+'**'+filialTxt2+', pessoa jurídica de direito privado, inscrita no CNPJ sob nº **'+d.cnpj+'**, estabelecida na '+endStr(d)+', neste ato representado por seu representante legal, na forma do seu contrato social, denominada simplesmente como **CONTRATANTE**.');
+    addPar('**PLUSCARGO INTERNACIONAL LTDA.**, pessoa jurídica de direito privado inscrita no CNPJ/MF sob n.˚ **04.389.187/0001-18**, com sede e foro em Santos/SP, na Praça Antônio Teles, 15 – 10º andar, Sl. 101/102, Centro, CEP: 11.013-020, neste ato representado por seu representante legal, na forma do seu contrato social, denominada simplesmente como **CONTRATADA**.');
+    addPar('As partes acima nominadas e qualificadas resolvem, de pleno e comum acordo, ajustar o presente contrato de conformidade com as cláusulas e condições seguintes:');
+
+    var clausulas=[
+      ['PRIMEIRA – DO OBJETO','1.1) O objeto do contrato é a prestação de serviços de Desembaraço Aduaneiro de Processos de Importação e/ou Exportação, nos termos da proposta comercial previamente apresentada pela CONTRATADA a qual fará parte ou constantes do ANEXO I.\n\n1.2) As partes entendem que o presente contrato não assume as características de exclusividade.\n\n1.3) O presente contrato não poderá ser alterado, modificado ou substituído, salvo se assim expressamente acordado entre as partes, mediante a assinatura de termo aditivo.'],
+      ['SEGUNDA – DA APRESENTAÇÃO DOS DOCUMENTOS, FORNECIMENTO DE INFORMAÇÕES E CLASSIFICAÇÃO DOS PRODUTOS','2.1) O CONTRATANTE se responsabiliza pela veracidade, legitimidade e autenticidade dos documentos fornecidos para habilitação junto aos órgãos governamentais, bem como pela licitude das mercadorias a serem importadas e/ou exportadas, origem dos recursos utilizados no comércio exterior e regularidade das transações comerciais objeto do despacho aduaneiro.\n\n2.2) Constitui ainda responsabilidade da CONTRATANTE prestar as informações necessárias e corretas para os processos de importação e exportação, tais como: pesos, quantidades, volumes (m³), classificação fiscal das mercadorias (NCM), descrição dos produtos, tratamentos tributários, país de origem, incoterm, câmbio etc.\n\n2.3) Em hipótese alguma a CONTRATADA poderá ser responsabilizada pela indicação da classificação fiscal das mercadorias (NCM) para o(s) produto(s) que venha(m) a ser importado(s) pelo CONTRATANTE.\n\n2.4) A CONTRATANTE se responsabiliza totalmente pelo pagamento de multas na importação e exportação, como diferença de impostos e de eventuais multas incidentes em caso de solicitação de alteração de NCM e descrição por parte da Receita Federal.\n\n2.5) A entrega dos documentos e a prestação das informações pela CONTRATANTE à CONTRATADA deve ser realizada dentro de um prazo a ser acordado entre as partes, sendo qualquer ônus gerado por atraso no envio dos documentos por conta da CONTRATANTE.\n\n2.6) A CONTRATADA não possui responsabilidade sobre a prestação do serviço de transporte nacional e internacional, apenas faz a indicação da empresa de transporte e contratação.'],
+      ['TERCEIRA – PREÇOS','3.1) Os serviços objeto deste contrato serão remunerados conforme consta na proposta comercial previamente apresentada pela CONTRATADA e devidamente aprovada pela CONTRATANTE.\n\n3.2) Os preços expressos neste contrato serão reajustados anualmente com base na correção do salário mínimo, na data base de janeiro, sendo encaminhada a nova proposta comercial com os novos valores com 30 (trinta) dias de antecedência.\n\n3.3) Os valores estabelecidos somente serão revisados fora da periodicidade supra definida nas hipóteses de: a) modificações na alíquota de qualquer tributo incidente sobre o objeto do contrato; b) criação, modificação, eliminação ou substituição de tributos, taxas, contribuições ou encargos.\n\n3.4) Em qualquer dos casos de alterações de preços, os mesmos serão consolidados mediante prévia negociação entre as partes, mediante a assinatura de termo aditivo.\n\n3.5) Os Regimes Aduaneiros Especiais, Regimes Atípicos e outros serviços não inclusos no ANEXO I serão analisados individualmente pela CONTRATADA.\n\n3.6) A CONTRATADA poderá realizar o desembaraço aduaneiro em todos os recintos alfandegários no Brasil, mediante a contratação de um parceiro (despachante aduaneiro).'],
+      ['QUARTA – POLÍTICA DE ADIANTAMENTO DE NUMERÁRIO','4.1) A CONTRATANTE reconhece neste ato que para fins da regular execução do objeto deste contrato, é imprescindível o adiantamento de numerário com o intuito do pagamento dos impostos, taxas, contribuições, encargos e demais despesas envolvidas em um regular processo de desembaraço aduaneiro.\n\n4.2) A necessidade de tais adiantamentos faz-se necessária pois as despesas são devidas sempre de forma adiantada, cujo pagamento dos impostos dá-se previamente via débito em conta corrente, sob pena da carga não ser desembaraçada.\n\n4.3) Caso a CONTRATANTE não efetue tal adiantamento, a CONTRATADA ficará impedida de executar o objeto deste contrato, ficando desde já eximida de qualquer ônus ou responsabilidade decorrente da liberação tardia.\n\n4.4 a 4.9) Ao tomar conhecimento dos processos que serão encaminhados para si, deverá a CONTRATADA fazer a projeção de todos os custos referentes à liberação dos mesmos, e repassar previamente para a Contratante realizar o respectivo adiantamento de numerário. A CONTRATANTE poderá ter que complementar eventual saldo remanescente à CONTRATADA. Em casos excepcionais, a CONTRATADA poderá complementar valores visando a agilidade do processo, sendo estes ressarcidos imediatamente pela CONTRATANTE após a prestação de contas, sendo autorizada a realizar a compensação de valores entre processos.'],
+      ['QUINTA – FATURAMENTO E COBRANÇA','5.1) O Contratado apresentará à CONTRATANTE, logo após a conclusão do evento, o Demonstrativo de Despesas acompanhado dos Documentos de Cobrança, bem como guias de Recolhimento de Impostos, Taxas e Despesas do processo, quando houver. Entende-se como Documento de Cobrança: nota fiscal, fatura, recibo, nota de débito ou qualquer outro documento previsto em Lei.'],
+      ['SEXTA – PRAZO DE CONTRATO, RESCISÃO E PENALIDADES','6.1) O presente contrato terá validade de 12 (doze) meses.\n\n6.2) Qualquer das partes poderá rescindir o presente instrumento, sem qualquer ônus, mediante aviso prévio escrito com antecedência mínima de 30 (trinta) dias, ficando asseguradas as obrigações assumidas até seu termo final.'],
+      ['SÉTIMA – DO PAGAMENTO','7.1) Os pagamentos serão efetuados em até 10 (dez) dias corridos após a apresentação dos documentos de cobrança, inclusive nota fiscal, conforme indicado na proposta comercial ou no ANEXO I.\n\n7.2) Os documentos de cobrança devem ser apresentados à CONTRATANTE no seu endereço ou via e-mail, caso seja solicitação do cliente, até 7 (sete) dias após a finalização do processo.'],
+      ['OITAVA – DA GESTÃO DA OPERAÇÃO, RISCO, DESPESAS E MULTAS','8.1) A CONTRATADA e os outorgados que receberão o mandato particular para agirem em nome da CONTRATANTE não responderão de forma solidária ou subsidiária por eventuais descumprimentos da CONTRATANTE, no que se refere às normas legais pertinentes às operações de importação e exportação.\n\n8.2) A responsabilidade da CONTRATADA limita-se ao valor do serviço a que fora efetivamente CONTRATADA.\n\n8.3) Após a nacionalização dos produtos, cabe ao importador a emissão da Nota Fiscal de entrada e levantamento dos custos dos produtos importados.\n\n8.4 a 8.5) O controle de câmbio é de responsabilidade do CONTRATANTE, que deve informar ao banco/corretora a D.I. ou DU-E para ser vinculada.\n\n8.6) Cabe ao CONTRATANTE a criação e manutenção do catálogo de produtos no sistema SISCOMEX para a DUIMP.\n\n8.7 a 8.10) Todas as despesas decorrentes das importações e exportações, incluindo o conserto, lavagem e aluguel de container (demurrage), bem como todas as multas incidentes no processo, são de inteira responsabilidade do CONTRATANTE.'],
+      ['NONA – DA NOVAÇÃO','9.1) Fica expressa e irrevogavelmente estabelecido que a abstenção, pelas partes contratantes, de quaisquer direitos ou faculdades que lhes assistam pelo contrato, ou a concordância com o atraso no cumprimento de obrigações da outra parte, não afetarão aqueles direitos ou faculdades que poderão ser exercidas a qualquer momento.'],
+      ['DÉCIMA – DOS ASPECTOS TRABALHISTAS','10.1) O presente Contrato é de natureza civil, não estabelecendo qualquer vínculo empregatício entre a CONTRATANTE e os empregados, contratados, subcontratados e/ou prepostos que a CONTRATADA empregar na execução dos serviços.\n\n10.2) Se qualquer demanda judicial ou ação trabalhista for proposta contra a CONTRATANTE em razão dos Serviços prestados pela CONTRATADA, esta deverá requerer em juízo a exclusão da CONTRATANTE do feito, assumindo todos os ônus decorrentes dessas demandas.\n\n10.3) A CONTRATADA atenderá ao disposto na legislação trabalhista quanto à não utilização de mão de obra em trabalho noturno, escravo, perigoso ou insalubre, de menores de dezoito anos.'],
+      ['DÉCIMA PRIMEIRA – FRAUDE E CORRUPÇÃO (Lei nº 12.846/13 e Decreto nº 8.420/15)','11.1 a 11.4) A CONTRATADA não poderá oferecer, dar ou se comprometer a dar a quem quer que seja qualquer pagamento, doação, compensação, gratificação, comissão, vantagem financeira ou não financeira ou benefício de qualquer espécie com a finalidade de ser contratada ou para obter qualquer tipo de vantagem indevida que caracterize prática ilegal ou de corrupção, em conformidade com a Lei nº 12.846/13 (Lei de Anticorrupção), regulamentada pelo Decreto nº 8.420/15.'],
+      ['DÉCIMA SEGUNDA – CONFIDENCIALIDADE','12.1 a 12.8) É vedado às Partes prestar informações a terceiros sobre a natureza ou andamento dos Serviços objeto do presente Contrato, bem como divulgar informações fornecidas por uma Parte à outra referentes a segredo industrial e/ou comercial, know-how, especificações, procedimentos, processos produtivos e todas as informações técnicas. As obrigações de confidencialidade terão validade durante a vigência deste Contrato e por mais 05 (cinco) anos após a sua extinção.'],
+      ['DÉCIMA TERCEIRA – DA LEI GERAL DE PROTEÇÃO DE DADOS','13.1 a 13.3) A CONTRATANTE, em atendimento à Lei 13.709/2018 – LGPD, utiliza os dados pessoais dos despachantes aduaneiros indicados pela CONTRATADA na procuração de representação para atividades relacionadas ao desembaraço aduaneiro no ambiente SISCOMEX e cadastro em instituições financeiras. Os dados poderão ser compartilhados com Instituições Financeiras, Receita Federal e outros órgãos públicos, sendo armazenados por 7 (sete) anos a partir do ano seguinte à utilização para operação aduaneira.'],
+      ['DÉCIMA QUARTA – DISCRIMINAÇÃO DE GÊNERO, TRABALHO INFANTIL, FORÇADO E ANÁLOGO À ESCRAVO','14.1 a 14.2) A CONTRATADA se obriga a não praticar qualquer conduta discriminatória a raça ou gênero, bem como não contratar e/ou utilizar mão de obra infantil ou análoga à escrava, empregando unicamente mão de obra de maiores de 18 (dezoito) anos, salvo adolescentes maiores de 14 (catorze) anos na condição de aprendiz.'],
+      ['DÉCIMA QUINTA – CASO FORTUITO OU DE FORÇA MAIOR','15.1 a 15.2) As Partes não responderão por prejuízos causados por casos fortuitos ou de força maior devidamente comprovados, incluindo: guerra, revolução, estado de sítio, intervenção governamental, greve nacional, sabotagem, pandemias, tempestades, inundações ou fatos climáticos que impeçam o perfeito cumprimento das obrigações contratuais.'],
+      ['DÉCIMA SEXTA – DAS DISPOSIÇÕES GERAIS','16.1 a 16.7) O presente Instrumento não poderá ser cedido ou transferido sem prévio consentimento por escrito da outra parte. O CONTRATANTE se compromete a manter atualizadas todas as suas inscrições, licenças, alvarás, autorizações e registros perante todos os órgãos públicos, em especial o Radar perante a Secretaria da Receita Federal. Toda documentação original dos processos deverá ficar arquivada pelo CONTRATANTE por um prazo de 5 (cinco) anos.'],
+      ['DÉCIMA SÉTIMA – DA ASSINATURA','17.1) As Partes admitem a assinatura eletrônica do presente Instrumento, transmitida por meio de certificação digital pública ou privada, como válida e hábil para garantir sua integridade e a autoria, nos termos do art. 10, § 2º, da Medida Provisória n.º 2.200-2, de 24 de agosto de 2001.'],
+      ['DÉCIMA OITAVA – DO FORO','18.1) O presente contrato será regido e interpretado de acordo com as leis vigentes na República Federativa do Brasil, especialmente o art. 593 e seguintes do Código Civil de 2002.\n\n18.2) Para a solução de quaisquer divergências oriundas do presente contrato, fica eleito o foro da Comarca de Santos - Estado de São Paulo, com renúncia de qualquer outro, por mais privilegiado que seja.'],
+    ];
+    clausulas.forEach(function(cl){
+      addSubtitulo('CLÁUSULA '+cl[0]);
+      cl[1].split('\n\n').forEach(function(txt){addPar(txt)});
+    });
+    addEspaco();
+    addPar('E por estarem justas e contratadas, firmam o presente em 2 (duas) vias de igual teor e forma, na presença de 2 (duas) testemunhas abaixo, para que se produza os seus efeitos jurídicos.');
+    addPar('Santos, em **'+d.data_fmt+'**.',{align:Align.CENTER});
+    addAssinaturaDupla(d.razao,'CONTRATANTE','PLUSCARGO INTERNACIONAL LTDA','CONTRATADA');
+    addTestemunhas(d.test1,d.test2);
+
+  } else {
+    /* SUBSTABELECIMENTO */
+    var subst=SUBST_PESSOAS[d.subst_key]||SUBST_PESSOAS.paula;
+    var todos2=[];
+    d.outorgados_idx.forEach(function(i){todos2.push(OUTORG_PRECAD[i])});
+    d.outorgados_novos.forEach(function(o){todos2.push(o)});
+    addTitulo('SUBSTABELECIMENTO');
+    addPar('Pelo presente instrumento particular, **'+subst.nome.toUpperCase()+'**, '+subst.nac+', '+subst.ecivil+', inscrito(a) no CPF nº **'+subst.cpf+'**, com registro de '+subst.prof+' **'+subst.registro+'**, portador(a) da cédula de identidade RG nº **'+subst.rg+'**, residente e domiciliado(a) na '+subst.end+', substabelece com reserva de iguais poderes, estes outorgados pela empresa **'+d.razao_emp+'**, pessoa jurídica, inscrita no CNPJ nº **'+d.cnpj_emp+'**.');
+    addSubtitulo('Outorga:');
+    todos2.forEach(function(o){
+      var linha='**'+o.nome.toUpperCase()+'**, '+o.nac+', '+o.ecivil+', '+o.prof;
+      if(o.cpf)linha+=', portador do CPF nº **'+o.cpf+'**';
+      if(o.rg)linha+=' e RG nº **'+o.rg+'**';
+      if(o.end)linha+=', residente e domiciliado à '+o.end+';';
+      addPar(linha,{indent:10});
+    });
+    addSubtitulo('Exercerem isoladamente os seguintes poderes:');
+    [
+      ['1','Exercer as atividades relacionadas ao despacho aduaneiro de mercadorias importadas e exportadas, bem assim, quaisquer outras relativas às operações de comércio exterior, conforme o art. 718 do Regulamento Aduaneiro, aprovado pelo Decreto nº 4.543/02.'],
+      ['2','Requerer e assinar termos de responsabilidade, com ou sem fiança bancária, assinar declarações, recibos e quaisquer documentos, receber e dar quitações de qualquer espécie, inclusive de depósitos de restituições.'],
+      ['3','Receber e tomar ciência de notificações e intimações, concordar, em nome do outorgante, com exigências fiscais ou apresentar contestações às exigências fiscais e recursos às de Segunda Instância ou instância especial.'],
+      ['4','Pagar impostos de importação e exportação, sobre produtos industrializados, sobre circulação de mercadorias, penalidades pecuniárias, por ventura impostas, bem como taxas e demais despesas havidas nas importações, exportações e trânsito de mercadoria.'],
+      ['5','Representar a outorgante perante a Empresa de Portos do Brasil S.A. – PORTOBRÁS, as Companhias Docas de todos os portos brasileiros, a Empresa Brasileira de Infraestrutura Aeroportuária, bem como as demais concessionárias de portos e aeroportos do Brasil.'],
+      ['6','Representar a outorgante perante as empresas permissionárias de estabelecimentos com os RECINTOS ALFANDEGADOS, podendo assinar e processar na condição de habilitado a Declaração de Trânsito Aduaneiro (DTA), bem como todos os expedientes necessários ao depósito de mercadoria importada ou destinada à exportação.'],
+      ['7','Representar a outorgante perante toda e qualquer Repartição Pública, em particular perante todos os órgãos do Ministério da Fazenda, Secretaria da Receita Federal e seus respectivos órgãos, Superintendências Regionais da Receita Federal, Inspetorias da Receita Federal, bem como perante o Banco do Brasil S.A., o Banco Central do Brasil, as Secretarias da Fazenda Estadual e Municipal.'],
+      ['8','Representar a outorgante perante a ANVISA (Agência Nacional de Vigilância Sanitária), podendo receber e firmar Autos de Infração Sanitária, notificações, decisões administrativas e demais termos legais, podendo ainda apresentar defesas, impugnações e recursos administrativos.'],
+      ['9','Representar a outorgante perante o Serviço de Vigilância Agropecuária – SVA/UVAGRO, para assinar os documentos exigidos, inclusive Termo de Depositário (FORMULÁRIO III) e Termo de Compromisso (FORMULÁRIO IV), e demais órgãos relacionados ao comércio exterior.'],
+      ['10','Poderes especiais autorizando também, subscrever Termo de Responsabilidade em garantia do cumprimento de Obrigação Tributária, pedido de restituição de indébito, de compensação ou desistências de vistorias, podendo praticar perante estas entidades todos os atos que forem de interesse da outorgante, assinando documentos, requerimentos e contratos, podendo ainda contratar e substabelecer despachante aduaneiro e ajudantes, total ou parcialmente, sempre com reserva de iguais poderes, **com validade até '+d.validade_fmt+'**.'],
+    ].forEach(function(pp){addPar('**'+pp[0]+')** '+pp[1],{indent:10})});
+    addEspaco();
+    addPar('**'+d.cidade_ass+'/'+d.uf_ass+'**, '+d.data_fmt+'.',{align:Align.RIGHT});
+    addAssinaturaSimples(subst.nome.toUpperCase(),'CPF: '+subst.cpf);
+  }
+
+  /* Gera o arquivo */
+  var doc=new Doc({
+    sections:[{
+      properties:{
+        page:{margin:{top:Pct(25),bottom:Pct(20),left:Pct(30),right:Pct(25)}}
+      },
+      children:children
+    }]
+  });
+
+  docx.Packer.toBlob(doc).then(function(blob){
+    var nome=(d.tipo==='procuracao'?'Procuracao':d.tipo==='contrato'?'Contrato':'Substabelecimento')
+      +' - '+(d.razao||d.razao_emp||'PLUSCARGO')
+      +' - '+(d.data_raw||d.data_raw||'').replace(/-/g,'')
+      +'.docx';
+    var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=nome;a.click();
+    hideLoading();toast('DOCX gerado com sucesso!');
+  }).catch(function(e){hideLoading();console.error(e);alert('Erro ao gerar DOCX:\n\n'+e.message)});
+}
+
+/* INIT */
+renderForm();
+</script>
+</body>
+</html>
